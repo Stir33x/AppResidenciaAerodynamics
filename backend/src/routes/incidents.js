@@ -21,10 +21,10 @@ router.get('/', async (req, res) => {
     const params = [];
     const conditions = [];
 
-    // Estudiantes solo ven sus propias incidencias
+    // Estudiantes: ven sus incidencias + las de su habitación + zonas comunes
     if (req.user.rol === 'estudiante') {
-      conditions.push('i.reportado_por = ?');
-      params.push(req.user.id);
+      conditions.push('(i.reportado_por = ? OR i.habitacion IN (SELECT s.habitacion FROM students s WHERE s.profile_id = ?) OR i.habitacion IN (SELECT nombre FROM common_zones))');
+      params.push(req.user.id, req.user.id);
     }
 
     if (estado) { conditions.push('i.estado = ?'); params.push(estado); }

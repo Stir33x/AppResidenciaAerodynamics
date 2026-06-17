@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 
 export default function RoomsPage() {
-  const { t } = useTranslation(['rooms', 'common'])
+  const { t } = useTranslation()
   const [rooms, setRooms] = useState([])
   const [newRoom, setNewRoom] = useState('')
   const [error, setError] = useState('')
@@ -41,27 +41,55 @@ export default function RoomsPage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-3xl font-bold">{t('rooms.title')}</h1>
 
-      <form onSubmit={addRoom} className="flex gap-2 items-end">
-        <div className="form-control">
-          <label className="label"><span className="label-text">{t('rooms.new_room')}</span></label>
-          <input
-            className="input input-bordered w-40"
-            placeholder={t('rooms.name_placeholder')}
-            value={newRoom}
-            onChange={(e) => setNewRoom(e.target.value)}
-          />
+      <div className="card bg-base-100 border shadow-sm">
+        <div className="card-body p-4">
+          <form onSubmit={addRoom} className="join w-full max-w-md">
+            <input
+              className="input input-bordered join-item flex-1"
+              placeholder={t('rooms.name_placeholder')}
+              value={newRoom}
+              onChange={(e) => setNewRoom(e.target.value)}
+            />
+            <button type="submit" className="btn btn-primary join-item">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+              {t('rooms.add')}
+            </button>
+          </form>
         </div>
-        <button type="submit" className="btn btn-primary">{t('rooms.add')}</button>
-      </form>
+      </div>
 
       {error && <div className="alert alert-error text-sm">{error}</div>}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {rooms.map((r) => (
-          <div key={r.id} className="card bg-base-100 shadow-sm border">
+          <div key={r.id} className={`card shadow-sm border ${r.occupied ? 'border-error/30' : 'border-success/30'}`}>
             <div className="card-body items-center p-4 gap-2">
               <span className="text-xl font-bold">{r.nombre}</span>
-              <button className="btn btn-xs btn-soft btn-error" onClick={() => deleteRoom(r.id)}>
+
+              {r.occupied ? (
+                <div className="badge badge-error badge-sm gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-error-content animate-pulse" />
+                  {t('rooms.occupied')}
+                </div>
+              ) : (
+                <div className="badge badge-success badge-sm gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success-content" />
+                  {t('rooms.free')}
+                </div>
+              )}
+
+              {r.occupied && (
+                <div className="text-xs text-center opacity-70 leading-relaxed">
+                  <div>{t('rooms.occupied_by')}: <strong>{r.occupied_by}</strong></div>
+                  <div>{t('rooms.occupied_until')}: <strong>{r.occupied_until}</strong></div>
+                </div>
+              )}
+
+              <div className="text-xs text-center opacity-60">
+                {t('rooms.next_available')}: <strong>{r.next_available_date}</strong>
+              </div>
+
+              <button className="btn btn-xs btn-soft btn-error mt-1" onClick={() => deleteRoom(r.id)}>
                 {t('rooms.delete')}
               </button>
             </div>

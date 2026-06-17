@@ -11,7 +11,9 @@
     "rooms": "Rooms",
     "users": "Users",
     "logout": "Log out",
-    "language": "Language"
+    "language": "Language",
+    "language_es": "🇪🇸 Español",
+    "language_en": "🇬🇧 English"
   },
   "roles": {
     "direccion": "Director",
@@ -50,6 +52,7 @@
     "absence_to": "To",
     "absence_submit": "Notify",
     "absence_updated": "Updated ✅",
+    "absence_error": "Error registering absence",
     "absence_created": "Absence registered ✅",
     "my_incidents": "My incidents",
     "view_all": "View all",
@@ -126,7 +129,17 @@
     "exit_date": "Planned exit date",
     "receipt_amount": "Receipt amount (€)",
     "billing_frequency": "Billing frequency",
-    "confirm_departure": "Mark actual departure for {{nombre}} {{apellidos}}?"
+    "confirm_departure": "Mark actual departure for {{nombre}} {{apellidos}}?",
+    "create_desc": "Enter the new student's details",
+    "edit_desc": "Modify the student's details",
+    "name_placeholder": "e.g. John",
+    "surname_placeholder": "e.g. Smith",
+    "email_placeholder": "e.g. student@aerodynamics.es",
+    "password_placeholder": "Min. 8 characters",
+    "phone_placeholder": "e.g. +34 600 000 000",
+    "section_personal": "Personal info",
+    "section_housing": "Room & dates",
+    "section_billing": "Billing"
   },
   "payments": {
     "title": "Payments",
@@ -153,11 +166,20 @@
     "create_title": "New payment",
     "period_placeholder": "e.g. June 2026",
     "mandate_ref": "Mandate reference",
+    "mandate_placeholder": "e.g. MAND-2026-001",
+    "create_desc": "Register a new payment or receipt",
+    "edit_desc": "Modify the payment details",
     "generate_title": "Generate receipts",
     "receipt_amount": "Receipt amount (€)",
     "frequency": "Billing frequency",
     "num_receipts": "Number of receipts to generate",
     "success": "{{count}} receipts of {{importe}} € generated ✅"
+  },
+  "payment_states": {
+    "pendiente": "Pending",
+    "cobrado": "Collected",
+    "vencido": "Overdue",
+    "anulado": "Cancelled"
   },
   "incidents": {
     "title": "Incidents",
@@ -188,7 +210,11 @@
     "add_zone": "Add",
     "delete_zone": "Delete",
     "zones_empty": "No common zones",
-    "confirm_delete_zone": "Delete this zone?"
+    "confirm_delete_zone": "Delete this zone?",
+    "create_desc": "Describe the incident you want to report",
+    "manage_desc": "Manage the status and assignment of this incident",
+    "desc_placeholder": "Describe the details of the incident...",
+    "zones_desc": "Add or remove common zones"
   },
   "incident_states": {
     "reportada": "reported",
@@ -215,7 +241,9 @@
     "rooms": "Rooms",
     "no_rooms": "No rooms",
     "create_block": "Create block ({{count}} rooms)",
-    "select_room_error": "Select at least one room"
+    "select_room_error": "Select at least one room",
+    "create_desc": "Create a cleaning block with schedule and rooms",
+    "selected_rooms": "{{count}} rooms selected"
   },
   "days": {
     "Lunes": "Monday",
@@ -246,6 +274,8 @@
     "end_time": "End time",
     "description": "Description (optional)",
     "description_placeholder": "Additional details...",
+    "create_desc": "Add a new schedule or activity",
+    "edit_desc": "Modify the schedule details",
     "confirm_delete": "Delete \"{{titulo}}\"?",
     "time_range": "{{inicio}} — {{fin}}",
     "location_suffix": "· {{ubicacion}}"
@@ -265,7 +295,12 @@
     "name_placeholder": "e.g. 106",
     "add": "Add",
     "delete": "Delete",
-    "empty": "No rooms registered"
+    "empty": "No rooms registered",
+    "occupied": "Occupied",
+    "free": "Free",
+    "occupied_by": "Occupant",
+    "occupied_until": "Occupied until",
+    "next_available": "Next available"
   },
   "documents": {
     "title": "Documents",
@@ -285,8 +320,10 @@
     "student_of": "Documents of {{nombre}} {{apellidos}}",
     "student_empty": "No documents available",
     "confirm_delete": "Delete \"{{nombre}}\"?",
-    "uploaded_by": "{{fecha}} — {{nombre}}",
-    "size": "{{tamano}} KB"
+    "uploaded_by": "uploaded by system",
+    "size": "{{size}} KB",
+    "download_error": "Download error",
+    "open_error": "Error opening document"
   },
   "doc_types": {
     "contrato": "contract",
@@ -312,11 +349,20 @@
     "surname": "Surname",
     "new_password": "New password (leave empty to keep)",
     "password": "Password",
-    "confirm_delete": "Delete {{nombre}} {{apellidos}}?"
+    "confirm_delete": "Delete {{nombre}} {{apellidos}}?",
+    "create_desc": "Create a new system user",
+    "edit_desc": "Modify the user's details",
+    "name_placeholder": "e.g. Jane",
+    "surname_placeholder": "e.g. Doe",
+    "email_placeholder": "e.g. user@aerodynamics.es",
+    "phone_placeholder": "e.g. +34 600 000 000",
+    "password_placeholder": "Min. 8 characters",
+    "password_edit_placeholder": "Leave empty to keep current"
   },
   "user_roles": {
     "direccion": "director",
     "administracion": "admin",
-    "limpieza": "cleaning staff"
+    "limpieza": "cleaning staff",
+    "estudiante": "student"
   }
 }

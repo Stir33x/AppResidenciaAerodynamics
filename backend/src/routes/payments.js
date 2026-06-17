@@ -7,7 +7,7 @@ const router = Router();
 router.use(authMiddleware);
 
 // GET /api/pagos
-router.get('/', async (req, res) => {
+router.get('/', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
   try {
     const { estado, student_id } = req.query;
     let sql = `
@@ -19,8 +19,13 @@ router.get('/', async (req, res) => {
     const params = [];
     const conditions = [];
 
-    if (estado) { conditions.push('p.estado = ?'); params.push(estado); }
-    if (student_id) { conditions.push('p.student_id = ?'); params.push(student_id); }
+    if (req.user.rol === 'estudiante') {
+      conditions.push('s.profile_id = ?');
+      params.push(req.user.id);
+    } else {
+      if (estado) { conditions.push('p.estado = ?'); params.push(estado); }
+      if (student_id) { conditions.push('p.student_id = ?'); params.push(student_id); }
+    }
 
     if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
     sql += ' ORDER BY p.fecha_vencimiento DESC';
@@ -34,7 +39,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/pagos/forecast (proyección mensual de ingresos)
-router.get('/forecast', async (req, res) => {
+router.get('/forecast', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
     // 1. Pagos reales agrupados por periodo
     const [realPayments] = await pool.query(`
@@ -57,7 +62,13 @@ router.get('/forecast', async (req, res) => {
       WHERE estado IN ('activo','pendiente_salida') AND cuota_mensual > 0
     `);
 
-    // 3. Generar proyección próximos 6 meses
+    // 3. Obtener pagos existentes por estudiante+periodo para evitar duplicar
+    const [existingPayments] = await pool.query(`
+      SELECT student_id, periodo FROM pagos WHERE estado != 'anulado'
+    `);
+    const existingSet = new Set(existingPayments.map(p => `${p.student_id}|${p.periodo}`));
+
+    // 4. Generar proyección próximos 6 meses (solo periodos sin pago existente)
     const now = new Date();
     const projection = [];
     for (let m = 0; m < 6; m++) {
@@ -66,6 +77,7 @@ router.get('/forecast', async (req, res) => {
       let projected = 0;
       for (const s of students) {
         if (!s.fecha_entrada) continue;
+        if (existingSet.has(`${s.id}|${periodo}`)) continue;
         const mesesDesdeEntrada = Math.floor((d - new Date(s.fecha_entrada)) / (30 * 24 * 60 * 60 * 1000));
         if (mesesDesdeEntrada >= 0 && (mesesDesdeEntrada % s.facturar_cada === 0)) {
           projected += parseFloat(s.cuota_mensual);
@@ -100,7 +112,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/pagos
-router.post('/', requireRole('direccion', 'administracion'), async (req, res) => {
+router.post('/', requireRole('direccion'), async (req, res) => {
   try {
     const { student_id, periodo, importe, fecha_vencimiento, fecha_cobro, referencia_mandato } = req.body;
     if (!student_id || !periodo || !importe || !fecha_vencimiento) {
@@ -120,7 +132,7 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
 });
 
 // PUT /api/pagos/:id
-router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) => {
+router.put('/:id', requireRole('direccion'), async (req, res) => {
   try {
     const { importe, fecha_vencimiento, fecha_cobro, estado, referencia_mandato } = req.body;
 
@@ -153,7 +165,7 @@ router.delete('/:id', requireRole('direccion'), async (req, res) => {
 });
 
 // POST /api/pagos/generar (generar recibos periódicos)
-router.post('/generar', requireRole('direccion', 'administracion'), async (req, res) => {
+router.post('/generar', requireRole('direccion'), async (req, res) => {
   try {
     const { student_id, cada_meses, num_pagos, importe } = req.body;
     if (!student_id || !cada_meses || !num_pagos || !importe) {

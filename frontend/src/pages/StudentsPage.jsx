@@ -167,11 +167,14 @@ export default function StudentsPage() {
                 </td>
                 <td>
                   {s.contrato_url ? (
-                    <a href={`http://localhost:3000${s.contrato_url}`} target="_blank" className="link link-primary text-sm" rel="noreferrer">{t('students.view_contract')}</a>
+                    <a href={`http://localhost:3000${s.contrato_url}`} target="_blank" className="link link-primary text-sm flex items-center gap-1" rel="noreferrer">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                      {t('students.view_contract')}
+                    </a>
                   ) : (
                     <div className="flex gap-1 items-center">
-                      <input id={`file-${s.id}`} type="file" className="file-input file-input-xs w-20" accept=".pdf" onChange={() => setUploading({ id: s.id })} />
-                      {uploading.id === s.id && <button className="btn btn-xs btn-soft" onClick={() => handleUpload(s.id)}>{t('students.upload')}</button>}
+                      <input id={`file-${s.id}`} type="file" className="file-input file-input-xs max-w-24" accept=".pdf" onChange={() => setUploading({ id: s.id })} />
+                      {uploading.id === s.id && <button className="btn btn-xs btn-primary" onClick={() => handleUpload(s.id)}>{t('students.upload')}</button>}
                     </div>
                   )}
                 </td>
@@ -204,72 +207,99 @@ export default function StudentsPage() {
 
       {showModal && (
         <dialog className="modal modal-open" onClick={() => setShowModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-4">{editing ? t('students.edit_title') : t('students.create_title')}</h3>
-            <form onSubmit={handleSave} className="flex flex-col gap-3">
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('students.name')}</span></label>
-                <input className="input input-bordered" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required disabled={!!editing} />
+          <div className="modal-box max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
               </div>
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('students.surname')}</span></label>
-                <input className="input input-bordered" value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} disabled={!!editing} />
+              <div>
+                <h3 className="font-bold text-lg">{editing ? t('students.edit_title') : t('students.create_title')}</h3>
+                <p className="text-sm opacity-60">{editing ? t('students.edit_desc') : t('students.create_desc')}</p>
               </div>
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('students.email')}</span></label>
-                <input type="email" className="input input-bordered" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={!!editing} />
-              </div>
-              {!editing && (
-                <div className="form-control">
-                  <label className="label"><span className="label-text">{t('students.password')}</span></label>
-                  <input type="password" className="input input-bordered" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+            </div>
+            <form onSubmit={handleSave} className="flex flex-col gap-4">
+              <fieldset className="border border-base-300 rounded-box p-4">
+                <legend className="font-medium text-sm px-1 text-primary">{t('students.section_personal')}</legend>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="form-control">
+                    <label className="label"><span className="label-text">{t('students.name')}</span></label>
+                    <input className="input input-bordered" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required disabled={!!editing} placeholder={t('students.name_placeholder')} />
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text">{t('students.surname')}</span></label>
+                    <input className="input input-bordered" value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} disabled={!!editing} placeholder={t('students.surname_placeholder')} />
+                  </div>
                 </div>
-              )}
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('students.phone')}</span></label>
-                <input className="input input-bordered" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} disabled={!!editing} />
-              </div>
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('students.room')}</span></label>
-                <select
-                  className="select select-bordered"
-                  value={form.habitacion}
-                  onChange={(e) => setForm({ ...form, habitacion: e.target.value })}
-                >
-                  <option value="">{t('common.unassigned')}</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.nombre}>{r.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="form-control">
-                  <label className="label"><span className="label-text">{t('students.entry_date')}</span></label>
-                  <input type="date" className="input input-bordered" value={form.fecha_entrada} onChange={(e) => updateForm({ fecha_entrada: e.target.value })} />
+                <div className="form-control mt-3">
+                  <label className="label"><span className="label-text">{t('students.email')}</span></label>
+                  <input type="email" className="input input-bordered" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={!!editing} placeholder={t('students.email_placeholder')} />
                 </div>
-                <div className="form-control">
-                  <label className="label"><span className="label-text">{t('students.exit_date')}</span></label>
-                  <input type="date" className="input input-bordered" value={form.fecha_salida_prevista} onChange={(e) => updateForm({ fecha_salida_prevista: e.target.value })} />
+                {!editing && (
+                  <div className="form-control mt-3">
+                    <label className="label"><span className="label-text">{t('students.password')}</span></label>
+                    <input type="password" className="input input-bordered" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required placeholder={t('students.password_placeholder')} />
+                  </div>
+                )}
+                <div className="form-control mt-3">
+                  <label className="label"><span className="label-text">{t('students.phone')}</span></label>
+                  <input className="input input-bordered" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} disabled={!!editing} placeholder={t('students.phone_placeholder')} />
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+              </fieldset>
+
+              <fieldset className="border border-base-300 rounded-box p-4">
+                <legend className="font-medium text-sm px-1 text-primary">{t('students.section_housing')}</legend>
                 <div className="form-control">
-                  <label className="label"><span className="label-text">{t('students.receipt_amount')}</span></label>
-                  <input type="number" step="0.01" className="input input-bordered" value={form.cuota_mensual} onChange={(e) => setForm({ ...form, cuota_mensual: e.target.value })} />
-                </div>
-                <div className="form-control">
-                  <label className="label"><span className="label-text">{t('students.billing_frequency')}</span></label>
-                  <select className="select select-bordered" value={form.facturar_cada} onChange={(e) => setForm({ ...form, facturar_cada: e.target.value })}>
-                    <option value="1">{t('common.1_month')}</option>
-                    <option value="2">{t('common.2_months')}</option>
-                    <option value="3">{t('common.3_months')}</option>
-                    <option value="6">{t('common.6_months')}</option>
-                    <option value="12">{t('common.12_months')}</option>
+                  <label className="label"><span className="label-text">{t('students.room')}</span></label>
+                  <select
+                    className="select select-bordered"
+                    value={form.habitacion}
+                    onChange={(e) => setForm({ ...form, habitacion: e.target.value })}
+                  >
+                    <option value="">{t('common.unassigned')}</option>
+                    {rooms.map((r) => (
+                      <option key={r.id} value={r.nombre}>{r.nombre}</option>
+                    ))}
                   </select>
                 </div>
-              </div>
-              <div className="modal-action">
-                <button type="button" className="btn" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div className="form-control">
+                    <label className="label"><span className="label-text">{t('students.entry_date')}</span></label>
+                    <input type="date" className="input input-bordered" value={form.fecha_entrada} onChange={(e) => updateForm({ fecha_entrada: e.target.value })} />
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text">{t('students.exit_date')}</span></label>
+                    <input type="date" className="input input-bordered" value={form.fecha_salida_prevista} onChange={(e) => updateForm({ fecha_salida_prevista: e.target.value })} />
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset className="border border-base-300 rounded-box p-4">
+                <legend className="font-medium text-sm px-1 text-primary">{t('students.section_billing')}</legend>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="form-control">
+                    <label className="label"><span className="label-text">{t('students.receipt_amount')}</span></label>
+                    <div className="join w-full">
+                      <input type="number" step="0.01" className="input input-bordered join-item flex-1" value={form.cuota_mensual} onChange={(e) => setForm({ ...form, cuota_mensual: e.target.value })} placeholder="0.00" />
+                      <span className="join-item bg-base-200 flex items-center px-3 text-sm opacity-60">€</span>
+                    </div>
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text">{t('students.billing_frequency')}</span></label>
+                    <select className="select select-bordered" value={form.facturar_cada} onChange={(e) => setForm({ ...form, facturar_cada: e.target.value })}>
+                      <option value="1">{t('common.1_month')}</option>
+                      <option value="2">{t('common.2_months')}</option>
+                      <option value="3">{t('common.3_months')}</option>
+                      <option value="6">{t('common.6_months')}</option>
+                      <option value="12">{t('common.12_months')}</option>
+                    </select>
+                  </div>
+                </div>
+              </fieldset>
+
+              <div className="modal-action mt-2">
+                <button type="button" className="btn btn-soft" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary">{editing ? t('common.save') : t('students.create_title')}</button>
               </div>
             </form>

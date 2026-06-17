@@ -8,7 +8,7 @@ const router = Router();
 router.use(authMiddleware);
 
 // GET /api/users
-router.get('/', requireRole('direccion', 'administracion'), async (req, res) => {
+router.get('/', requireRole('direccion'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT id, email, nombre, apellidos, telefono, rol, created_at FROM profiles ORDER BY nombre'
@@ -21,7 +21,7 @@ router.get('/', requireRole('direccion', 'administracion'), async (req, res) => 
 });
 
 // POST /api/users
-router.post('/', requireRole('direccion', 'administracion'), async (req, res) => {
+router.post('/', requireRole('direccion'), async (req, res) => {
   try {
     const { email, password, nombre, apellidos, telefono, rol } = req.body;
     if (!email || !password || !nombre) {
@@ -48,7 +48,7 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
 });
 
 // PUT /api/users/:id
-router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) => {
+router.put('/:id', requireRole('direccion'), async (req, res) => {
   try {
     const { nombre, apellidos, telefono, rol, password } = req.body;
 

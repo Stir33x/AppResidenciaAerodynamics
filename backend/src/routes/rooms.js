@@ -6,11 +6,41 @@ const router = Router();
 
 router.use(authMiddleware);
 
-// GET /api/rooms — todas las habitaciones
-router.get('/', async (req, res) => {
+// GET /api/rooms — todas las habitaciones con estado de ocupación
+router.get('/', requireRole('direccion', 'administracion', 'limpieza'), async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM rooms ORDER BY nombre ASC');
-    res.json(rows);
+    const sql = `
+      SELECT
+        r.*,
+        (SELECT CONCAT(p.nombre, ' ', p.apellidos)
+         FROM students s
+         JOIN profiles p ON p.id = s.profile_id
+         WHERE s.habitacion = r.nombre AND s.estado IN ('activo', 'pendiente_salida')
+         LIMIT 1
+        ) AS occupied_by,
+        (SELECT s.fecha_salida_prevista
+         FROM students s
+         WHERE s.habitacion = r.nombre AND s.estado IN ('activo', 'pendiente_salida')
+         ORDER BY s.fecha_salida_prevista DESC
+         LIMIT 1
+        ) AS occupied_until
+      FROM rooms r
+      ORDER BY r.nombre ASC
+    `;
+    const [rows] = await pool.query(sql);
+    const now = new Date().toISOString().split('T')[0];
+    const result = rows.map(r => ({
+      ...r,
+      occupied: !!r.occupied_by,
+      next_available_date: r.occupied_until
+        ? (() => {
+            const d = new Date(r.occupied_until);
+            d.setDate(d.getDate() + 1);
+            return d.toISOString().split('T')[0];
+          })()
+        : now
+    }));
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error del servidor' });

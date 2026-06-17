@@ -7,7 +7,7 @@ const tipos = ['urgente', 'normal', 'baja']
 const estados = ['reportada', 'en_curso', 'resuelta', 'cerrada']
 
 export default function IncidentsPage() {
-  const { t } = useTranslation(['incidents', 'incident_states', 'incident_priorities', 'roles', 'common'])
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isStaff = user?.rol !== 'estudiante'
   const canManageZones = user?.rol === 'direccion' || user?.rol === 'administracion'
@@ -106,12 +106,12 @@ export default function IncidentsPage() {
 
   const tipoBadge = (tipo) => {
     const cls = { urgente: 'badge-error', normal: 'badge-info', baja: 'badge-soft' }
-    return <span className={`badge ${cls[tipo] || ''}`}>{t(tipo)}</span>
+    return <span className={`badge ${cls[tipo] || ''}`}>{t('incident_priorities.' + tipo)}</span>
   }
 
   const estadoBadge = (estado) => {
     const cls = { reportada: 'badge-soft', en_curso: 'badge-warning', resuelta: 'badge-success', cerrada: 'badge-neutral' }
-    return <span className={`badge ${cls[estado] || ''}`}>{t(estado)}</span>
+    return <span className={`badge ${cls[estado] || ''}`}>{t('incident_states.' + estado)}</span>
   }
 
   return (
@@ -130,11 +130,11 @@ export default function IncidentsPage() {
         <span className="text-sm opacity-70">{t('incidents.filter')}</span>
         <select className="select select-bordered select-sm" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
           <option value="">{t('incidents.all_states')}</option>
-          {estados.map((est) => <option key={est} value={est}>{t(est)}</option>)}
+          {estados.map((est) => <option key={est} value={est}>{t('incident_states.' + est)}</option>)}
         </select>
         <select className="select select-bordered select-sm" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
           <option value="">{t('incidents.all_priorities')}</option>
-          {tipos.map((tp) => <option key={tp} value={tp}>{t(tp)}</option>)}
+          {tipos.map((tp) => <option key={tp} value={tp}>{t('incident_priorities.' + tp)}</option>)}
         </select>
       </div>
 
@@ -178,41 +178,53 @@ export default function IncidentsPage() {
 
       {showModal && !editing && (
         <dialog className="modal modal-open" onClick={() => setShowModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-4">{t('incidents.create_title')}</h3>
-            <form onSubmit={handleCreate} className="flex flex-col gap-3">
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('incidents.priority')}</span></label>
-                <select className="select select-bordered" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
-                  {tipos.map((tp) => <option key={tp} value={tp}>{t(tp)}</option>)}
-                </select>
+          <div className="modal-box max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center text-error">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
               </div>
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('incidents.location')}</span></label>
-                {user?.rol === 'estudiante' ? (
-                  <select className="select select-bordered" value={form.habitacion} onChange={(e) => setForm({ ...form, habitacion: e.target.value })} required>
-                    <option value="">{t('common.select')}</option>
-                    {user.habitacion && <option value={user.habitacion}>{t('incidents.my_room', { room: user.habitacion })}</option>}
-                    {commonZones.map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+              <div>
+                <h3 className="font-bold text-lg">{t('incidents.create_title')}</h3>
+                <p className="text-sm opacity-60">{t('incidents.create_desc')}</p>
+              </div>
+            </div>
+            <form onSubmit={handleCreate} className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('incidents.priority')}</span></label>
+                  <select className="select select-bordered" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
+                    {tipos.map((tp) => <option key={tp} value={tp}>{t('incident_priorities.' + tp)}</option>)}
                   </select>
-                ) : (
-                  <select className="select select-bordered" value={form.habitacion} onChange={(e) => setForm({ ...form, habitacion: e.target.value })}>
-                    <option value="">{t('incidents.no_location')}</option>
-                    <optgroup label={t('incidents.rooms_group')}>
-                      {rooms.map((r) => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}
-                    </optgroup>
-                    <optgroup label={t('incidents.zones_group')}>
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('incidents.location')}</span></label>
+                  {user?.rol === 'estudiante' ? (
+                    <select className="select select-bordered" value={form.habitacion} onChange={(e) => setForm({ ...form, habitacion: e.target.value })} required>
+                      <option value="">{t('common.select')}</option>
+                      {user.habitacion && <option value={user.habitacion}>{t('incidents.my_room', { room: user.habitacion })}</option>}
                       {commonZones.map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
-                    </optgroup>
-                  </select>
-                )}
+                    </select>
+                  ) : (
+                    <select className="select select-bordered" value={form.habitacion} onChange={(e) => setForm({ ...form, habitacion: e.target.value })}>
+                      <option value="">{t('incidents.no_location')}</option>
+                      <optgroup label={t('incidents.rooms_group')}>
+                        {rooms.map((r) => <option key={r.id} value={r.nombre}>{r.nombre}</option>)}
+                      </optgroup>
+                      <optgroup label={t('incidents.zones_group')}>
+                        {commonZones.map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
+                      </optgroup>
+                    </select>
+                  )}
+                </div>
               </div>
               <div className="form-control">
                 <label className="label"><span className="label-text">{t('incidents.description')}</span></label>
-                <textarea className="textarea textarea-bordered h-24" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} required />
+                <textarea className="textarea textarea-bordered h-28" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} required placeholder={t('incidents.desc_placeholder')} />
               </div>
               <div className="modal-action">
-                <button type="button" className="btn" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
+                <button type="button" className="btn btn-soft" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary">{t('common.create')}</button>
               </div>
             </form>
@@ -222,37 +234,58 @@ export default function IncidentsPage() {
 
       {showModal && editing && isStaff && (
         <dialog className="modal modal-open" onClick={() => setShowModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-4">{t('incidents.manage_title')} #{editing.id}</h3>
-            <div className="mb-4 p-3 bg-base-200 rounded-box text-sm">
-              <p><strong>{t('incidents.reported_by')}:</strong> {editing.reportado_nombre} {editing.reportado_apellidos}</p>
-              <p><strong>{t('incidents.location')}:</strong> {editing.habitacion || '-'}</p>
-              <p><strong>{t('incidents.description')}:</strong> {editing.descripcion}</p>
-            </div>
-            <form onSubmit={handleEdit} className="flex flex-col gap-3">
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('incidents.priority')}</span></label>
-                <select className="select select-bordered" value={editForm.tipo} onChange={(e) => setEditForm({ ...editForm, tipo: e.target.value })}>
-                  {tipos.map((tp) => <option key={tp} value={tp}>{t(tp)}</option>)}
-                </select>
+          <div className="modal-box max-w-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center text-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                </svg>
               </div>
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('incidents.status')}</span></label>
-                <select className="select select-bordered" value={editForm.estado} onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}>
-                  {estados.map((est) => <option key={est} value={est}>{t(est)}</option>)}
-                </select>
+              <div>
+                <h3 className="font-bold text-lg">{t('incidents.manage_title')} #{editing.id}</h3>
+                <p className="text-sm opacity-60">{t('incidents.manage_desc')}</p>
+              </div>
+            </div>
+            <div className="bg-base-200 rounded-box p-4 mb-4 text-sm space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-medium opacity-70 w-20">{t('incidents.reported_by')}:</span>
+                <span>{editing.reportado_nombre} {editing.reportado_apellidos}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium opacity-70 w-20">{t('incidents.location')}:</span>
+                <span>{editing.habitacion || '-'}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-medium opacity-70 w-20 shrink-0">{t('incidents.description')}:</span>
+                <span className="opacity-80">{editing.descripcion}</span>
+              </div>
+            </div>
+            <form onSubmit={handleEdit} className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('incidents.priority')}</span></label>
+                  <select className="select select-bordered" value={editForm.tipo} onChange={(e) => setEditForm({ ...editForm, tipo: e.target.value })}>
+                    {tipos.map((tp) => <option key={tp} value={tp}>{t('incident_priorities.' + tp)}</option>)}
+                  </select>
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('incidents.status')}</span></label>
+                  <select className="select select-bordered" value={editForm.estado} onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}>
+                    {estados.map((est) => <option key={est} value={est}>{t('incident_states.' + est)}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="form-control">
                 <label className="label"><span className="label-text">{t('incidents.assigned_to')}</span></label>
                 <select className="select select-bordered" value={editForm.asignado_a} onChange={(e) => setEditForm({ ...editForm, asignado_a: e.target.value })}>
                   <option value="">{t('common.no_data')}</option>
                   {staff.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nombre} {p.apellidos} ({t(p.rol)})</option>
+                    <option key={p.id} value={p.id}>{p.nombre} {p.apellidos} ({t('roles.' + p.rol)})</option>
                   ))}
                 </select>
               </div>
               <div className="modal-action">
-                <button type="button" className="btn" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
+                <button type="button" className="btn btn-soft" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary">{t('common.save')}</button>
               </div>
             </form>
@@ -263,22 +296,36 @@ export default function IncidentsPage() {
       {showZonesModal && (
         <dialog className="modal modal-open" onClick={() => setShowZonesModal(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-4">{t('incidents.zones_title')}</h3>
-            <form onSubmit={handleAddZone} className="flex items-end gap-2 mb-4">
-              <div className="form-control flex-1">
-                <label className="label"><span className="label-text">{t('incidents.new_zone')}</span></label>
-                <input className="input input-bordered" value={newZone} onChange={(e) => setNewZone(e.target.value)} placeholder={t('incidents.zone_placeholder')} required />
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-base-200 flex items-center justify-center text-base-content">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
+                </svg>
               </div>
-              <button type="submit" className="btn btn-primary btn-sm mb-1">{t('incidents.add_zone')}</button>
+              <div>
+                <h3 className="font-bold text-lg">{t('incidents.zones_title')}</h3>
+                <p className="text-sm opacity-60">{t('incidents.zones_desc')}</p>
+              </div>
+            </div>
+            <form onSubmit={handleAddZone} className="join w-full mb-4">
+              <input className="input input-bordered join-item flex-1" value={newZone} onChange={(e) => setNewZone(e.target.value)} placeholder={t('incidents.zone_placeholder')} required />
+              <button type="submit" className="btn btn-primary join-item">{t('incidents.add_zone')}</button>
             </form>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 max-h-60 overflow-y-auto">
               {commonZones.map((z) => (
-                <div key={z.id} className="flex items-center justify-between p-2 bg-base-200 rounded-box">
-                  <span>{z.nombre}</span>
-                  <button className="btn btn-ghost btn-xs btn-error" onClick={() => handleDeleteZone(z.id)}>{t('incidents.delete_zone')}</button>
+                <div key={z.id} className="flex items-center justify-between px-3 py-2.5 bg-base-200 rounded-box">
+                  <div className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 opacity-50"><path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" /></svg>
+                    <span>{z.nombre}</span>
+                  </div>
+                  <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDeleteZone(z.id)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                  </button>
                 </div>
               ))}
-              {commonZones.length === 0 && <p className="opacity-60 text-sm">{t('incidents.zones_empty')}</p>}
+              {commonZones.length === 0 && (
+                <p className="text-sm opacity-60 text-center py-8">{t('incidents.zones_empty')}</p>
+              )}
             </div>
             <div className="modal-action">
               <button type="button" className="btn" onClick={() => setShowZonesModal(false)}>{t('common.close')}</button>

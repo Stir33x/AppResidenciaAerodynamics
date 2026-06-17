@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 const DIAS = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
 
 export default function CleaningPage() {
-  const { t } = useTranslation(['cleaning', 'days', 'common'])
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.rol === 'direccion' || user?.rol === 'administracion'
   const [blocks, setBlocks] = useState([])
@@ -86,7 +86,7 @@ export default function CleaningPage() {
   if (user?.rol === 'limpieza') {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-3xl font-bold">{t('cleaning.today_title', { day: todayData?.dia ? t(todayData.dia) : '' })}</h1>
+        <h1 className="text-3xl font-bold">{t('cleaning.today_title', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h1>
         {(!todayData?.blocks || todayData.blocks.length === 0) && (
           <div className="alert alert-soft">{t('cleaning.no_tasks')}</div>
         )}
@@ -137,7 +137,7 @@ export default function CleaningPage() {
           return (
             <div key={dia} className={`card shadow-sm border ${idx % 2 === 0 ? 'bg-base-100' : 'bg-base-200'}`}>
               <div className="card-body p-4">
-                <h2 className="card-title text-lg mb-2">{t(dia)}</h2>
+                <h2 className="card-title text-lg mb-2">{t('days.' + dia)}</h2>
                 {delDia.length === 0 && <p className="text-sm opacity-50">{t('cleaning.no_schedules')}</p>}
                 {delDia.map((b) => (
                   <div key={b.id} className="mb-2 p-2 bg-base-100 rounded-box border">
@@ -160,7 +160,7 @@ export default function CleaningPage() {
 
       <div className="card bg-base-100 shadow-sm border">
         <div className="card-body">
-          <h2 className="card-title">{t('cleaning.today_section', { day: todayData?.dia ? t(todayData.dia) : '' })}</h2>
+          <h2 className="card-title">{t('cleaning.today_section', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h2>
           {todayData?.blocks?.length === 0 && <p className="text-sm opacity-60">{t('cleaning.no_tasks')}</p>}
           {todayData?.blocks?.map((b) => (
             <div key={b.id} className="mb-2">
@@ -180,12 +180,22 @@ export default function CleaningPage() {
       {showModal && (
         <dialog className="modal modal-open" onClick={() => setShowModal(false)}>
           <div className="modal-box max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-4">{t('cleaning.create_title')}</h3>
-            <form onSubmit={handleCreate} className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center text-info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">{t('cleaning.create_title')}</h3>
+                <p className="text-sm opacity-60">{t('cleaning.create_desc')}</p>
+              </div>
+            </div>
+            <form onSubmit={handleCreate} className="flex flex-col gap-4">
               <div className="form-control">
                 <label className="label"><span className="label-text">{t('cleaning.day')}</span></label>
                 <select className="select select-bordered" value={form.dia_semana} onChange={(e) => setForm({ ...form, dia_semana: e.target.value })}>
-                  {DIAS.map((d) => <option key={d} value={d}>{t(d)}</option>)}
+                  {DIAS.map((d) => <option key={d} value={d}>{t('days.' + d)}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -200,18 +210,21 @@ export default function CleaningPage() {
               </div>
               <div className="form-control">
                 <label className="label"><span className="label-text">{t('cleaning.rooms')}</span></label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto border rounded-box p-3">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto border border-base-300 rounded-box p-3 bg-base-200/50">
                   {rooms.map((r) => (
-                    <label key={r.id} className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" className="checkbox checkbox-xs" checked={form.selectedRooms.includes(r.nombre)} onChange={() => toggleRoom(r.nombre)} />
+                    <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-base-200 transition-colors">
+                      <input type="checkbox" className="checkbox checkbox-xs checkbox-primary" checked={form.selectedRooms.includes(r.nombre)} onChange={() => toggleRoom(r.nombre)} />
                       <span className="text-sm">{r.nombre}</span>
                     </label>
                   ))}
                   {rooms.length === 0 && <p className="text-sm opacity-50 col-span-full">{t('cleaning.no_rooms')}</p>}
                 </div>
+                {form.selectedRooms.length > 0 && (
+                  <p className="text-xs text-primary mt-1">{t('cleaning.selected_rooms', { count: form.selectedRooms.length })}</p>
+                )}
               </div>
               <div className="modal-action">
-                <button type="button" className="btn" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
+                <button type="button" className="btn btn-soft" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary">{t('cleaning.create_block', { count: form.selectedRooms.length })}</button>
               </div>
             </form>

@@ -11,14 +11,20 @@ const router = Router();
 router.use(authMiddleware);
 
 // GET /api/students
-router.get('/', async (req, res) => {
+router.get('/', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    let sql = `
       SELECT s.*, p.email, p.nombre, p.apellidos, p.telefono
       FROM students s
       JOIN profiles p ON p.id = s.profile_id
-      ORDER BY s.created_at DESC
-    `);
+    `;
+    const params = [];
+    if (req.user.rol === 'estudiante') {
+      sql += ' WHERE s.profile_id = ?';
+      params.push(req.user.id);
+    }
+    sql += ' ORDER BY s.created_at DESC';
+    const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -27,7 +33,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/students/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT s.*, p.email, p.nombre, p.apellidos, p.telefono
@@ -79,6 +85,42 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
       'INSERT INTO students (profile_id, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada) VALUES (?, ?, ?, ?, ?, ?)',
       [profileResult.insertId, habitacion || '', fecha_entrada || null, fecha_salida_prevista || null, cuota_mensual || 0, facturar_cada || 1]
     );
+
+    // Auto-generar recibos desde la fecha de entrada
+    if (fecha_entrada && parseFloat(cuota_mensual) > 0) {
+      const studentId = studentResult.insertId;
+      const startMonth = new Date(fecha_entrada);
+      startMonth.setDate(1);
+      const interval = parseInt(facturar_cada) || 1;
+      const amount = parseFloat(cuota_mensual);
+      const maxReceipts = 12;
+      let endMonth;
+      if (fecha_salida_prevista) {
+        endMonth = new Date(fecha_salida_prevista);
+        endMonth.setDate(1);
+      } else {
+        endMonth = new Date(startMonth);
+        endMonth.setMonth(endMonth.getMonth() + (maxReceipts - 1) * interval);
+      }
+      let current = new Date(startMonth);
+      let count = 0;
+      while (current <= endMonth && count < maxReceipts) {
+        const periodo = current.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+        const vencimiento = new Date(current.getFullYear(), current.getMonth() + 1, 5).toISOString().slice(0, 10);
+        const [existing] = await pool.query(
+          'SELECT id FROM pagos WHERE student_id = ? AND periodo = ? AND estado != ?',
+          [studentId, periodo, 'anulado']
+        );
+        if (existing.length === 0) {
+          await pool.query(
+            'INSERT INTO pagos (student_id, periodo, importe, fecha_vencimiento) VALUES (?, ?, ?, ?)',
+            [studentId, periodo, amount, vencimiento]
+          );
+        }
+        current.setMonth(current.getMonth() + interval);
+        count++;
+      }
+    }
 
     res.status(201).json({ id: studentResult.insertId, profile_id: profileResult.insertId });
   } catch (err) {
@@ -208,7 +250,7 @@ router.put('/:id/acceso', requireRole('direccion', 'administracion'), async (req
 });
 
 // GET /api/students/:id/documentos
-router.get('/:id/documentos', async (req, res) => {
+router.get('/:id/documentos', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT d.*, p.nombre AS subido_por_nombre
@@ -260,7 +302,7 @@ router.delete('/:id/documentos/:docId', requireRole('direccion', 'administracion
 });
 
 // GET /api/students/:id/documentos/:docId/download
-router.get('/:id/documentos/:docId/download', async (req, res) => {
+router.get('/:id/documentos/:docId/download', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
   try {
     const [docs] = await pool.query('SELECT * FROM documents WHERE id = ? AND student_id = ?', [req.params.docId, req.params.id]);
     if (docs.length === 0) return res.status(404).json({ error: 'Documento no encontrado' });

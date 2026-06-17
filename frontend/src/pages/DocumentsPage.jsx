@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 const tiposDoc = ['contrato', 'documento', 'justificante', 'parte', 'recibo', 'otro']
 
 export default function DocumentsPage() {
-  const { t } = useTranslation(['documents', 'doc_types', 'common'])
+  const { t } = useTranslation()
   const { user } = useAuth()
   const isStaff = user?.rol !== 'estudiante'
   const [students, setStudents] = useState([])
@@ -64,7 +64,7 @@ export default function DocumentsPage() {
       const res = await fetch(`http://localhost:3000/api/students/${selected.id}/documentos/${doc.id}/download`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      if (!res.ok) throw new Error('Error al descargar')
+      if (!res.ok) throw new Error(t('documents.download_error'))
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       window.open(url, '_blank')
@@ -73,7 +73,7 @@ export default function DocumentsPage() {
 
   const tipoBadge = (docType) => {
     const cls = { contrato: 'badge-primary', justificante: 'badge-info', parte: 'badge-warning', recibo: 'badge-success' }
-    return <span className={`badge ${cls[docType] || 'badge-soft'}`}>{t(docType)}</span>
+    return <span className={`badge ${cls[docType] || 'badge-soft'}`}>{t('doc_types.' + docType)}</span>
   }
 
   if (!isStaff) {
@@ -139,7 +139,7 @@ export default function DocumentsPage() {
                     <div className="form-control">
                       <label className="label py-1"><span className="label-text">{t('documents.type')}</span></label>
                       <select className="select select-bordered select-sm" value={uploadTipo} onChange={(e) => setUploadTipo(e.target.value)}>
-                        {tiposDoc.map((tp) => <option key={tp} value={tp}>{t(tp)}</option>)}
+                        {tiposDoc.map((tp) => <option key={tp} value={tp}>{t('doc_types.' + tp)}</option>)}
                       </select>
                     </div>
                     <div className="form-control">
@@ -169,7 +169,7 @@ export default function DocumentsPage() {
                             </div>
                             <p className="text-xs opacity-60 mt-1">
                               {new Date(doc.created_at).toLocaleDateString()} — {doc.subido_por_nombre || t('documents.uploaded_by')}
-                              {doc.tamano ? t('documents.size', { size: (doc.tamano / 1024).toFixed(1) }) : ''}
+                              {doc.tamano ? <> &middot; {t('documents.size', { size: (doc.tamano / 1024).toFixed(1) })}</> : ''}
                             </p>
                           </div>
                           <div className="flex gap-1">
@@ -191,7 +191,7 @@ export default function DocumentsPage() {
 }
 
 function StudentDocumentsView({ email, tipoBadge }) {
-  const { t } = useTranslation(['documents', 'doc_types', 'common'])
+  const { t } = useTranslation()
   const [myDocs, setMyDocs] = useState([])
   const [myStudent, setMyStudent] = useState(null)
 
@@ -226,13 +226,6 @@ function StudentDocumentsView({ email, tipoBadge }) {
                     </div>
                     <p className="text-xs opacity-60 mt-1">{new Date(doc.created_at).toLocaleDateString()}</p>
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      {tipoBadge(doc.tipo)}
-                      <span>{doc.nombre_original}</span>
-                    </div>
-                    <p className="text-xs opacity-60 mt-1">{new Date(doc.created_at).toLocaleDateString()}</p>
-                  </div>
                   <button
                     className="btn btn-xs btn-soft"
                     onClick={async () => {
@@ -244,7 +237,7 @@ function StudentDocumentsView({ email, tipoBadge }) {
                         if (!res.ok) throw new Error()
                         const blob = await res.blob()
                         window.open(URL.createObjectURL(blob), '_blank')
-                      } catch { alert('Error al abrir el documento') }
+                      } catch { alert(t('documents.open_error')) }
                     }}
                   >{t('documents.view')}</button>
                 </div>
