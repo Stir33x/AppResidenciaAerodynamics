@@ -16,7 +16,9 @@ export default function StudentsPage() {
     setStudents(data)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    (async () => { await load() })()
+  }, [])
 
   const loadRooms = async (editingStudent, formOverride) => {
     try {
@@ -157,8 +159,8 @@ export default function StudentsPage() {
                 <td>{s.nombre} {s.apellidos}</td>
                 <td>{s.email}</td>
                 <td><span className="badge badge-soft badge-outline">{s.habitacion || t('common.unassigned')}</span></td>
-                <td>{s.fecha_entrada ? new Date(s.fecha_entrada).toLocaleDateString() : '-'}</td>
-                <td>{s.fecha_salida_prevista ? new Date(s.fecha_salida_prevista).toLocaleDateString() : '-'}</td>
+                <td>{s.fecha_entrada ? new Date(s.fecha_entrada).toLocaleDateString('es-ES') : '-'}</td>
+                <td>{s.fecha_salida_prevista ? new Date(s.fecha_salida_prevista).toLocaleDateString('es-ES') : '-'}</td>
                 <td>{statusBadge(s.estado)}</td>
                 <td>{parseFloat(s.cuota_mensual || 0).toFixed(2)} €</td>
                 <td className="text-sm">{s.facturar_cada > 1 ? t('common.every_n_months', { n: s.facturar_cada }) : t('common.monthly')}</td>

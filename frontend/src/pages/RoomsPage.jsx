@@ -7,13 +7,22 @@ export default function RoomsPage() {
   const [rooms, setRooms] = useState([])
   const [newRoom, setNewRoom] = useState('')
   const [error, setError] = useState('')
+  const [showSoon, setShowSoon] = useState(false)
+
+  const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('es-ES') : '-'
+
+  const sorted = showSoon
+    ? [...rooms].sort((a, b) => new Date(a.next_available_date || 0) - new Date(b.next_available_date || 0))
+    : rooms
 
   const load = async () => {
     const data = await fetchApi('/rooms')
     setRooms(data)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    (async () => { await load() })()
+  }, [])
 
   const addRoom = async (e) => {
     e.preventDefault()
@@ -60,8 +69,19 @@ export default function RoomsPage() {
 
       {error && <div className="alert alert-error text-sm">{error}</div>}
 
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setShowSoon(!showSoon)}
+          className={`btn btn-sm ${showSoon ? 'btn-primary' : 'btn-soft btn-neutral'}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6h16.5M3.75 12h16.5m-16.5 6h16.5" /></svg>
+          {t('rooms.show_soon')}
+        </button>
+        <span className="text-sm opacity-60">{t('rooms.count', { n: sorted.length })}</span>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        {rooms.map((r) => (
+        {sorted.map((r) => (
           <div key={r.id} className={`card shadow-sm border ${r.occupied ? 'border-error/30' : 'border-success/30'}`}>
             <div className="card-body items-center p-4 gap-2">
               <span className="text-xl font-bold">{r.nombre}</span>
@@ -81,12 +101,12 @@ export default function RoomsPage() {
               {r.occupied && (
                 <div className="text-xs text-center opacity-70 leading-relaxed">
                   <div>{t('rooms.occupied_by')}: <strong>{r.occupied_by}</strong></div>
-                  <div>{t('rooms.occupied_until')}: <strong>{r.occupied_until}</strong></div>
+                  <div>{t('rooms.occupied_until')}: <strong>{fmt(r.occupied_until)}</strong></div>
                 </div>
               )}
 
               <div className="text-xs text-center opacity-60">
-                {t('rooms.next_available')}: <strong>{r.next_available_date}</strong>
+                {t('rooms.next_available')}: <strong>{fmt(r.next_available_date)}</strong>
               </div>
 
               <button className="btn btn-xs btn-soft btn-error mt-1" onClick={() => deleteRoom(r.id)}>

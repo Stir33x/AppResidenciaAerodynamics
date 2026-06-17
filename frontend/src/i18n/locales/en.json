@@ -300,7 +300,9 @@
     "free": "Free",
     "occupied_by": "Occupant",
     "occupied_until": "Occupied until",
-    "next_available": "Next available"
+    "next_available": "Next available",
+    "show_soon": "Soon available",
+    "count": "{{n}} rooms"
   },
   "documents": {
     "title": "Documents",

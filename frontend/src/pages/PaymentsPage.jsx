@@ -28,7 +28,9 @@ export default function PaymentsPage() {
     setPayments(data)
   }
 
-  useEffect(() => { load() }, [filtroEstado])
+  useEffect(() => {
+    (async () => { await load() })()
+  }, [filtroEstado])
   useEffect(() => { if (isStaff) fetchApi('/students').then(setStudents) }, [isStaff])
   useEffect(() => { if (isStaff) fetchApi('/pagos/forecast').then(setForecast) }, [isStaff])
 
@@ -160,8 +162,8 @@ export default function PaymentsPage() {
                 {isStaff && <td>{p.habitacion}</td>}
                 <td>{p.periodo}</td>
                 <td>{parseFloat(p.importe).toFixed(2)} €</td>
-                <td>{p.fecha_vencimiento ? new Date(p.fecha_vencimiento).toLocaleDateString() : '-'}</td>
-                <td>{p.fecha_cobro ? new Date(p.fecha_cobro).toLocaleDateString() : '-'}</td>
+                <td>{p.fecha_vencimiento ? new Date(p.fecha_vencimiento).toLocaleDateString('es-ES') : '-'}</td>
+                <td>{p.fecha_cobro ? new Date(p.fecha_cobro).toLocaleDateString('es-ES') : '-'}</td>
                 <td>{estadoBadge(p.estado)}</td>
                 <td className="text-sm opacity-60">{p.referencia_mandato || '-'}</td>
                 {isStaff && (

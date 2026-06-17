@@ -25,7 +25,9 @@ export default function SchedulesPage() {
     setHorarios(data)
   }
 
-  useEffect(() => { load() }, [filtroTipo])
+  useEffect(() => {
+    (async () => { await load() })()
+  }, [filtroTipo])
 
   const openCreate = () => {
     setEditing(null)

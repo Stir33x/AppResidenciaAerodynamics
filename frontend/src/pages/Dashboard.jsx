@@ -304,7 +304,7 @@ export default function Dashboard() {
                         <span className="font-medium text-sm">{s.nombre} {s.apellidos}</span>
                         <span className="text-xs opacity-60 ml-2">{t('dashboard.departure_room', { habitacion: s.habitacion })}</span>
                         {s.fecha_salida_prevista && (
-                          <span className="text-xs opacity-60 ml-2">{t('dashboard.departure_date', { fecha: new Date(s.fecha_salida_prevista).toLocaleDateString() })}</span>
+                          <span className="text-xs opacity-60 ml-2">{t('dashboard.departure_date', { fecha: new Date(s.fecha_salida_prevista).toLocaleDateString('es-ES') })}</span>
                         )}
                       </div>
                       <Link to="/alumnos" className="btn btn-warning btn-xs shrink-0">{t('dashboard.departure_manage')}</Link>

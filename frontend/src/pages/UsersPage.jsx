@@ -18,7 +18,9 @@ export default function UsersPage() {
     setUsers(data)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    (async () => { await load() })()
+  }, [])
 
   const openCreate = () => {
     setEditing(null)
@@ -96,7 +98,7 @@ export default function UsersPage() {
                 <td>{u.email}</td>
                 <td>{u.telefono || '-'}</td>
                 <td>{rolBadge(u.rol)}</td>
-                <td className="text-sm">{new Date(u.created_at).toLocaleDateString()}</td>
+                <td className="text-sm">{new Date(u.created_at).toLocaleDateString('es-ES')}</td>
                 <td className="flex gap-1">
                   <button className="btn btn-xs btn-ghost" onClick={() => openEdit(u)}>{t('common.edit')}</button>
                   {u.id !== user?.id && (

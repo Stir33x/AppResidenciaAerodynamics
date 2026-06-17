@@ -82,18 +82,12 @@ export default function Layout({ children }) {
         `}
       >
         {/* Logo */}
-        <div className={`border-b border-base-300 ${!showFull ? 'p-3 flex justify-center' : 'p-5'}`}>
-          {!showFull ? (
-            <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-6 w-auto max-w-full" />
-          ) : (
-            <div className="flex items-center gap-3">
-              <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-9 w-auto shrink-0" />
-              <div className="overflow-hidden">
-                <div className="font-bold text-sm leading-tight text-base-content truncate">{t('layout.brand')}</div>
-                <div className="text-[10px] text-base-content/40 uppercase tracking-widest mt-0.5 truncate">Pilot Residence</div>
-              </div>
-            </div>
-          )}
+        <div className="flex items-center gap-3 p-5 border-b border-base-300">
+          <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-6 w-auto shrink-0" />
+          <div className={`overflow-hidden transition-opacity duration-200 ${showFull ? 'opacity-100' : 'opacity-0 invisible w-0'}`}>
+            <div className="font-bold text-sm leading-tight text-base-content truncate whitespace-nowrap">{t('layout.brand')}</div>
+            <div className="text-[10px] text-base-content/40 uppercase tracking-widest mt-0.5 truncate whitespace-nowrap">Pilot Residence</div>
+          </div>
         </div>
 
         {/* User info */}

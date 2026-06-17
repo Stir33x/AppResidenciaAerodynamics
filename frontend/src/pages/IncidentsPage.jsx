@@ -33,7 +33,9 @@ export default function IncidentsPage() {
     setIncidents(data)
   }
 
-  useEffect(() => { load() }, [filtroEstado, filtroTipo])
+  useEffect(() => {
+    (async () => { await load() })()
+  }, [filtroEstado, filtroTipo])
   useEffect(() => {
     if (isStaff) {
       fetchApi('/incidencias/staff/lista').then(setStaff).catch(() => {})
@@ -155,7 +157,7 @@ export default function IncidentsPage() {
           <tbody>
             {incidents.map((inc) => (
               <tr key={inc.id}>
-                <td className="text-sm">{new Date(inc.created_at).toLocaleDateString()}</td>
+                <td className="text-sm">{new Date(inc.created_at).toLocaleDateString('es-ES')}</td>
                 <td>{inc.reportado_nombre} {inc.reportado_apellidos}</td>
                 <td>{inc.habitacion || '-'}</td>
                 <td>{tipoBadge(inc.tipo)}</td>

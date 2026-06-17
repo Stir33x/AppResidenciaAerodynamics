@@ -168,7 +168,7 @@ export default function DocumentsPage() {
                               <span className="font-medium truncate">{doc.nombre_original}</span>
                             </div>
                             <p className="text-xs opacity-60 mt-1">
-                              {new Date(doc.created_at).toLocaleDateString()} — {doc.subido_por_nombre || t('documents.uploaded_by')}
+                              {new Date(doc.created_at).toLocaleDateString('es-ES')} — {doc.subido_por_nombre || t('documents.uploaded_by')}
                               {doc.tamano ? <> &middot; {t('documents.size', { size: (doc.tamano / 1024).toFixed(1) })}</> : ''}
                             </p>
                           </div>
@@ -224,7 +224,7 @@ function StudentDocumentsView({ email, tipoBadge }) {
                       {tipoBadge(doc.tipo)}
                       <span>{doc.nombre_original}</span>
                     </div>
-                    <p className="text-xs opacity-60 mt-1">{new Date(doc.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs opacity-60 mt-1">{new Date(doc.created_at).toLocaleDateString('es-ES')}</p>
                   </div>
                   <button
                     className="btn btn-xs btn-soft"
