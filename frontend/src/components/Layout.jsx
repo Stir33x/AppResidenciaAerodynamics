@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +20,10 @@ export default function Layout({ children }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  const showFull = expanded || mobileOpen
 
   const handleLogout = async () => {
     await logout()
@@ -29,110 +34,149 @@ export default function Layout({ children }) {
     i18n.changeLanguage(i18n.language === 'es' ? 'en' : 'es')
   }
 
+  const closeMobile = () => setMobileOpen(false)
+
   const visibleNav = menuItems.filter(({ roles }) => {
     if (!roles) return true
     return user && roles.includes(user.rol)
   })
 
   return (
-    <div className="drawer lg:drawer-open">
-      <input id="sidebar" type="checkbox" className="drawer-toggle" />
-      <div className="drawer-content flex flex-col min-h-svh">
-        {/* Mobile header */}
-        <div className="navbar bg-primary text-primary-content shadow-md lg:hidden sticky top-0 z-30">
-          <div className="flex-none">
-            <label htmlFor="sidebar" className="btn btn-square btn-ghost btn-sm text-primary-content">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block h-5 w-5 stroke-current">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </label>
-          </div>
-          <div className="flex-1 flex items-center gap-2">
-            <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-7 w-auto" />
-            <span className="text-sm font-semibold opacity-80">{t('layout.brand')}</span>
-          </div>
-          <div className="flex-none">
-            <button onClick={toggleLang} className="btn btn-ghost btn-xs text-primary-content">
-              {i18n.language === 'es' ? 'EN' : 'ES'}
-            </button>
-          </div>
+    <div className="min-h-svh flex flex-col lg:flex-row">
+      {/* Mobile header */}
+      <div className="navbar bg-primary text-primary-content shadow-md lg:hidden sticky top-0 z-30">
+        <div className="flex-none">
+          <button onClick={() => setMobileOpen(true)} className="btn btn-square btn-ghost btn-sm text-primary-content">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="inline-block h-5 w-5 stroke-current">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
         </div>
-
-        {/* Main content */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">{children}</main>
+        <div className="flex-1 flex items-center gap-2">
+          <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-7 w-auto" />
+          <span className="text-sm font-semibold opacity-80">{t('layout.brand')}</span>
+        </div>
+        <div className="flex-none">
+          <button onClick={toggleLang} className="btn btn-ghost btn-xs text-primary-content">
+            {i18n.language === 'es' ? 'EN' : 'ES'}
+          </button>
+        </div>
       </div>
 
-      {/* Sidebar */}
-      <div className="drawer-side z-40">
-        <label htmlFor="sidebar" className="drawer-overlay" />
-        <aside className="bg-base-100 border-r border-base-300 min-h-svh w-64 flex flex-col">
-          {/* Logo + Brand */}
-          <div className="p-5 border-b border-base-300">
-            <div className="flex items-center gap-3">
-              <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-9 w-auto" />
-              <div>
-                <div className="font-bold text-sm leading-tight text-base-content">{t('layout.brand')}</div>
-                <div className="text-[10px] text-base-content/40 uppercase tracking-widest mt-0.5">Pilot Residence</div>
-              </div>
-            </div>
-          </div>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={closeMobile} />
+      )}
 
-          {/* User info */}
-          {user && (
-            <div className="px-5 py-3 border-b border-base-300 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
-                {user.nombre?.charAt(0)}{user.apellidos?.charAt(0)}
-              </div>
-              <div className="text-sm leading-tight min-w-0">
-                <div className="truncate font-medium text-base-content">{user.nombre} {user.apellidos}</div>
-                <div className="text-[11px] text-base-content/50">{t('roles.' + user.rol)}</div>
+      {/* Sidebar */}
+      <aside
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
+        className={`
+          fixed lg:static inset-y-0 left-0 z-50
+          bg-base-100 border-r border-base-300 flex flex-col
+          transition-all duration-300 ease-in-out
+          overflow-hidden
+          ${showFull ? 'w-64' : 'w-16'}
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+      >
+        {/* Logo */}
+        <div className={`border-b border-base-300 ${!showFull ? 'p-3 flex justify-center' : 'p-5'}`}>
+          {!showFull ? (
+            <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-6 w-auto max-w-full" />
+          ) : (
+            <div className="flex items-center gap-3">
+              <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-9 w-auto shrink-0" />
+              <div className="overflow-hidden">
+                <div className="font-bold text-sm leading-tight text-base-content truncate">{t('layout.brand')}</div>
+                <div className="text-[10px] text-base-content/40 uppercase tracking-widest mt-0.5 truncate">Pilot Residence</div>
               </div>
             </div>
           )}
+        </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-3">
-            <ul className="menu menu-sm gap-0.5">
-              {visibleNav.map(({ to, labelKey, icon }) => {
-                const isActive = location.pathname === to
-                return (
-                  <li key={to}>
-                    <Link
-                      to={to}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                        isActive
-                          ? 'bg-primary/10 text-primary font-medium'
-                          : 'text-base-content/50 hover:text-base-content hover:bg-base-200'
-                      }`}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 shrink-0">
-                        <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
-                      </svg>
-                      {t(labelKey)}
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </nav>
-
-          {/* Bottom actions */}
-          <div className="p-3 border-t border-base-300 space-y-1.5">
-            <button onClick={toggleLang} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-base-content/50 hover:text-base-content hover:bg-base-200 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-              </svg>
-              {i18n.language === 'es' ? 'English' : 'Español'}
-            </button>
-            <button onClick={handleLogout} className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-              </svg>
-              {t('layout.logout')}
-            </button>
+        {/* User info */}
+        {user && (
+          <div className={`border-b border-base-300 flex items-center gap-3 ${!showFull ? 'p-3 justify-center' : 'px-5 py-3'}`}>
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+              {user.nombre?.charAt(0)}{user.apellidos?.charAt(0)}
+            </div>
+            {showFull && (
+              <div className="text-sm leading-tight min-w-0 overflow-hidden">
+                <div className="truncate font-medium text-base-content">{user.nombre} {user.apellidos}</div>
+                <div className="text-[11px] text-base-content/50 truncate">{t('roles.' + user.rol)}</div>
+              </div>
+            )}
           </div>
-        </aside>
-      </div>
+        )}
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto p-2">
+          <ul className="menu menu-sm gap-0.5">
+            {visibleNav.map(({ to, labelKey, icon }) => {
+              const isActive = location.pathname === to
+              return (
+                <li key={to}>
+                  <Link
+                    to={to}
+                    onClick={closeMobile}
+                    title={!showFull ? t(labelKey) : undefined}
+                    className={`flex items-center rounded-lg text-sm transition-colors ${
+                      !showFull
+                        ? 'justify-center p-2.5'
+                        : 'gap-3 px-3 py-2.5'
+                    } ${
+                      isActive
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-base-content/50 hover:text-base-content hover:bg-base-200'
+                    }`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 shrink-0">
+                      <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+                    </svg>
+                    {showFull && <span className="truncate">{t(labelKey)}</span>}
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+
+        {/* Bottom actions */}
+        <div className="p-2 border-t border-base-300 space-y-0.5">
+          <button
+            onClick={toggleLang}
+            title={!showFull ? (i18n.language === 'es' ? 'English' : 'Español') : undefined}
+            className={`flex items-center gap-2 w-full rounded-lg text-sm text-base-content/50 hover:text-base-content hover:bg-base-200 transition-colors ${
+              !showFull ? 'justify-center p-2.5' : 'px-3 py-2'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+            </svg>
+            {showFull && (i18n.language === 'es' ? 'English' : 'Español')}
+          </button>
+
+          <button
+            onClick={handleLogout}
+            title={!showFull ? t('layout.logout') : undefined}
+            className={`flex items-center gap-2 w-full rounded-lg text-sm text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors ${
+              !showFull ? 'justify-center p-2.5' : 'px-3 py-2'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+            </svg>
+            {showFull && t('layout.logout')}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        {children}
+      </main>
     </div>
   )
 }
