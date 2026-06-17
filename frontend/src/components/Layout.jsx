@@ -73,10 +73,10 @@ export default function Layout({ children }) {
         onMouseEnter={() => setExpanded(true)}
         onMouseLeave={() => setExpanded(false)}
         className={`
-          fixed lg:static inset-y-0 left-0 z-50
+          fixed lg:sticky inset-y-0 left-0 z-50
           bg-base-100 border-r border-base-300 flex flex-col
           transition-all duration-300 ease-in-out
-          overflow-hidden min-w-0
+          overflow-hidden min-w-0 max-h-svh
           ${showFull ? 'w-64' : 'w-16'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
