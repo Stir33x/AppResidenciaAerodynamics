@@ -76,7 +76,7 @@ export default function Layout({ children }) {
           fixed lg:static inset-y-0 left-0 z-50
           bg-base-100 border-r border-base-300 flex flex-col
           transition-all duration-300 ease-in-out
-          overflow-hidden
+          overflow-hidden min-w-0
           ${showFull ? 'w-64' : 'w-16'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
@@ -98,35 +98,29 @@ export default function Layout({ children }) {
 
         {/* User info */}
         {user && (
-          <div className={`border-b border-base-300 flex items-center gap-3 ${!showFull ? 'p-3 justify-center' : 'px-5 py-3'}`}>
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-base-300 min-w-0">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
               {user.nombre?.charAt(0)}{user.apellidos?.charAt(0)}
             </div>
-            {showFull && (
-              <div className="text-sm leading-tight min-w-0 overflow-hidden">
-                <div className="truncate font-medium text-base-content">{user.nombre} {user.apellidos}</div>
-                <div className="text-[11px] text-base-content/50 truncate">{t('roles.' + user.rol)}</div>
-              </div>
-            )}
+            <div className={`text-sm leading-tight min-w-0 overflow-hidden transition-opacity duration-200 ${showFull ? 'opacity-100' : 'opacity-0 invisible w-0 h-0'}`}>
+              <div className="truncate font-medium text-base-content">{user.nombre} {user.apellidos}</div>
+              <div className="text-[11px] text-base-content/50 truncate">{t('roles.' + user.rol)}</div>
+            </div>
           </div>
         )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto p-2">
-          <ul className="menu menu-sm gap-0.5">
+          <ul className="flex flex-col gap-0.5 min-w-0">
             {visibleNav.map(({ to, labelKey, icon }) => {
               const isActive = location.pathname === to
               return (
-                <li key={to}>
+                <li key={to} className="min-w-0">
                   <Link
                     to={to}
                     onClick={closeMobile}
                     title={!showFull ? t(labelKey) : undefined}
-                    className={`flex items-center rounded-lg text-sm transition-colors ${
-                      !showFull
-                        ? 'justify-center p-2.5'
-                        : 'gap-3 px-3 py-2.5'
-                    } ${
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors min-w-0 ${
                       isActive
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'text-base-content/50 hover:text-base-content hover:bg-base-200'
@@ -135,7 +129,9 @@ export default function Layout({ children }) {
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 shrink-0">
                       <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
                     </svg>
-                    {showFull && <span className="truncate">{t(labelKey)}</span>}
+                    <span className={`truncate transition-opacity duration-200 ${showFull ? 'opacity-100' : 'opacity-0 invisible w-0'}`}>
+                      {t(labelKey)}
+                    </span>
                   </Link>
                 </li>
               )
@@ -148,33 +144,33 @@ export default function Layout({ children }) {
           <button
             onClick={toggleLang}
             title={!showFull ? (i18n.language === 'es' ? 'English' : 'Español') : undefined}
-            className={`flex items-center gap-2 w-full rounded-lg text-sm text-base-content/50 hover:text-base-content hover:bg-base-200 transition-colors ${
-              !showFull ? 'justify-center p-2.5' : 'px-3 py-2'
-            }`}
+            className="flex items-center gap-2 px-3 py-2 w-full rounded-lg text-sm text-base-content/50 hover:text-base-content hover:bg-base-200 transition-colors min-w-0"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
             </svg>
-            {showFull && (i18n.language === 'es' ? 'English' : 'Español')}
+            <span className={`truncate transition-opacity duration-200 ${showFull ? 'opacity-100' : 'opacity-0 invisible w-0'}`}>
+              {i18n.language === 'es' ? 'English' : 'Español'}
+            </span>
           </button>
 
           <button
             onClick={handleLogout}
             title={!showFull ? t('layout.logout') : undefined}
-            className={`flex items-center gap-2 w-full rounded-lg text-sm text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors ${
-              !showFull ? 'justify-center p-2.5' : 'px-3 py-2'
-            }`}
+            className="flex items-center gap-2 px-3 py-2 w-full rounded-lg text-sm text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors min-w-0"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
             </svg>
-            {showFull && t('layout.logout')}
+            <span className={`truncate transition-opacity duration-200 ${showFull ? 'opacity-100' : 'opacity-0 invisible w-0'}`}>
+              {t('layout.logout')}
+            </span>
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+      <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
         {children}
       </main>
     </div>

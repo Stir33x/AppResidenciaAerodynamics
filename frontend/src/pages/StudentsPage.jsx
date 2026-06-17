@@ -178,7 +178,8 @@ export default function StudentsPage() {
                     </div>
                   )}
                 </td>
-                <td className="flex gap-1">
+                <td>
+                  <div className="flex gap-1 items-center min-h-[2rem]">
                   <button className="btn btn-xs btn-ghost" onClick={() => openEdit(s)}>{t('common.edit')}</button>
                   {s.estado === 'pendiente_salida' && (
                     <button
@@ -193,6 +194,7 @@ export default function StudentsPage() {
                       {t('students.mark_departure')}
                     </button>
                   )}
+                  </div>
                 </td>
               </tr>
             ))}
