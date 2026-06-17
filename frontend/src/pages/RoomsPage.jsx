@@ -72,7 +72,7 @@ export default function RoomsPage() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => setShowSoon(!showSoon)}
-          className={`btn btn-sm ${showSoon ? 'btn-primary' : 'btn-soft btn-neutral'}`}
+          className={`btn btn-sm ${showSoon ? 'btn-primary' : 'btn-outline btn-primary'}`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6h16.5M3.75 12h16.5m-16.5 6h16.5" /></svg>
           {t('rooms.show_soon')}
