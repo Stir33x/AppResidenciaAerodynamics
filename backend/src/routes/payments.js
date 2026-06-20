@@ -9,7 +9,7 @@ router.use(authMiddleware);
 // GET /api/pagos
 router.get('/', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
   try {
-    const { estado, student_id } = req.query;
+    const { estado, tipo, student_id } = req.query;
     let sql = `
       SELECT p.*, pr.nombre, pr.apellidos, s.habitacion
       FROM pagos p
@@ -24,11 +24,12 @@ router.get('/', requireRole('direccion', 'administracion', 'estudiante'), async 
       params.push(req.user.id);
     } else {
       if (estado) { conditions.push('p.estado = ?'); params.push(estado); }
+      if (tipo) { conditions.push('p.tipo = ?'); params.push(tipo); }
       if (student_id) { conditions.push('p.student_id = ?'); params.push(student_id); }
     }
 
     if (conditions.length > 0) sql += ' WHERE ' + conditions.join(' AND ');
-    sql += ' ORDER BY p.fecha_vencimiento DESC';
+    sql += ' ORDER BY p.fecha_vencimiento ASC';
 
     const [rows] = await pool.query(sql, params);
     res.json(rows);
@@ -114,14 +115,14 @@ router.get('/:id', async (req, res) => {
 // POST /api/pagos
 router.post('/', requireRole('direccion'), async (req, res) => {
   try {
-    const { student_id, periodo, importe, fecha_vencimiento, fecha_cobro, referencia_mandato } = req.body;
+    const { student_id, tipo, periodo, importe, descripcion, fecha_vencimiento, fecha_cobro, referencia_mandato } = req.body;
     if (!student_id || !periodo || !importe || !fecha_vencimiento) {
       return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
 
     const [result] = await pool.query(
-      'INSERT INTO pagos (student_id, periodo, importe, fecha_vencimiento, fecha_cobro, referencia_mandato) VALUES (?, ?, ?, ?, ?, ?)',
-      [student_id, periodo, importe, fecha_vencimiento, fecha_cobro || null, referencia_mandato || '']
+      'INSERT INTO pagos (student_id, tipo, periodo, importe, descripcion, fecha_vencimiento, fecha_cobro, referencia_mandato) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [student_id, tipo || 'regular', periodo, importe, descripcion || null, fecha_vencimiento, fecha_cobro || null, referencia_mandato || '']
     );
 
     res.status(201).json({ id: result.insertId });
@@ -134,17 +135,19 @@ router.post('/', requireRole('direccion'), async (req, res) => {
 // PUT /api/pagos/:id
 router.put('/:id', requireRole('direccion'), async (req, res) => {
   try {
-    const { importe, fecha_vencimiento, fecha_cobro, estado, referencia_mandato } = req.body;
+    const { tipo, importe, descripcion, fecha_vencimiento, fecha_cobro, estado, referencia_mandato } = req.body;
 
     await pool.query(`
       UPDATE pagos SET
+        tipo = COALESCE(?, tipo),
         importe = COALESCE(?, importe),
+        descripcion = COALESCE(?, descripcion),
         fecha_vencimiento = COALESCE(?, fecha_vencimiento),
         fecha_cobro = COALESCE(?, fecha_cobro),
         estado = COALESCE(?, estado),
         referencia_mandato = COALESCE(?, referencia_mandato)
       WHERE id = ?
-    `, [importe, fecha_vencimiento, fecha_cobro, estado, referencia_mandato, req.params.id]);
+    `, [tipo, importe, descripcion, fecha_vencimiento, fecha_cobro, estado, referencia_mandato, req.params.id]);
 
     res.json({ ok: true });
   } catch (err) {
@@ -184,8 +187,8 @@ router.post('/generar', requireRole('direccion'), async (req, res) => {
       );
       if (existing.length === 0) {
         const [result] = await pool.query(
-          'INSERT INTO pagos (student_id, periodo, importe, fecha_vencimiento) VALUES (?, ?, ?, ?)',
-          [student_id, periodo, importe, vencimiento]
+          'INSERT INTO pagos (student_id, tipo, periodo, importe, fecha_vencimiento) VALUES (?, ?, ?, ?, ?)',
+          [student_id, 'regular', periodo, importe, vencimiento]
         );
         created.push({ id: result.insertId, periodo, importe, fecha_vencimiento: vencimiento });
       }

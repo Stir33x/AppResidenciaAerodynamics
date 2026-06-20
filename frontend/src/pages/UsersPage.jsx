@@ -2,12 +2,14 @@
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../components/Toast'
 
 const roles = ['direccion', 'administracion', 'limpieza']
 
 export default function UsersPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { addToast, confirm } = useToast()
   const [users, setUsers] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -56,15 +58,17 @@ export default function UsersPage() {
       }
       setShowModal(false)
       load()
-    } catch (err) { alert(err.message) }
+      addToast(t('common.saved'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
   }
 
   const handleDelete = async (u) => {
-    if (!confirm(t('users.confirm_delete', { name: `${u.nombre} ${u.apellidos}` }))) return
+    if (!await confirm(t('users.confirm_delete', { name: `${u.nombre} ${u.apellidos}` }))) return
     try {
       await fetchApi(`/users/${u.id}`, { method: 'DELETE' })
       load()
-    } catch (err) { alert(err.message) }
+      addToast(t('common.deleted'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
   }
 
   const rolBadge = (r) => {
@@ -75,7 +79,7 @@ export default function UsersPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{t('users.title')}</h1>
+        <h1 className="text-4xl font-bold">{t('users.title')}</h1>
         <button className="btn btn-primary" onClick={openCreate}>{t('users.new')}</button>
       </div>
 

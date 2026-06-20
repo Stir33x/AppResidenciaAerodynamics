@@ -11,8 +11,13 @@ const roomsRoutes = require('./routes/rooms');
 const incidentsRoutes = require('./routes/incidents');
 const cleaningRoutes = require('./routes/cleaning');
 const commonZonesRoutes = require('./routes/common-zones');
+const documentTypesRoutes = require('./routes/document-types');
 const usersRoutes = require('./routes/users');
 const horariosRoutes = require('./routes/horarios');
+const inventoryRoutes = require('./routes/inventory');
+const departureChecklistRoutes = require('./routes/departure-checklist');
+const registrationChecklistRoutes = require('./routes/registration-checklist');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,7 +26,8 @@ app.use(cors());
 app.use(express.json());
 app.use(passport.initialize());
 
-// Archivos subidos (solo autenticado)
+// Archivos subidos (imágenes públicas, documentos requieren autenticación)
+app.use('/uploads/images', express.static(path.resolve(__dirname, '..', 'uploads', 'images')));
 app.use('/uploads', passport.authenticate('jwt', { session: false }), express.static(path.resolve(__dirname, '..', 'uploads')));
 
 app.use('/api', authRoutes);
@@ -31,8 +37,13 @@ app.use('/api/rooms', roomsRoutes);
 app.use('/api/incidencias', incidentsRoutes);
 app.use('/api/cleaning', cleaningRoutes);
 app.use('/api/common-zones', commonZonesRoutes);
+app.use('/api/document-types', documentTypesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/horarios', horariosRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/departure-checklist', departureChecklistRoutes);
+app.use('/api/registration-checklist', registrationChecklistRoutes);
+app.use('/api/upload', uploadRoutes);
 
 app.get('/api/stats', passport.authenticate('jwt', { session: false }), async (req, res) => {
   try {

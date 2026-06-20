@@ -222,14 +222,18 @@ router.post('/:id/notificar-salida', async (req, res) => {
 // PUT /api/students/:id/marcar-salida (staff marks student as departed)
 router.put('/:id/marcar-salida', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const [students] = await pool.query('SELECT id, estado FROM students WHERE id = ?', [req.params.id]);
+    const [students] = await pool.query('SELECT id, profile_id, estado FROM students WHERE id = ?', [req.params.id]);
     if (students.length === 0) return res.status(404).json({ error: 'Alumno no encontrado' });
     if (students[0].estado === 'baja') return res.status(400).json({ error: 'El alumno ya está dado de baja' });
 
-    await pool.query(
-      "UPDATE students SET fecha_salida_real = CURDATE(), acceso_habitacion = 0, estado = 'baja' WHERE id = ?",
-      [req.params.id]
-    );
+    const { profile_id } = students[0];
+
+    // Keep incidents but disassociate from this profile
+    await pool.query('UPDATE incidencias SET reportado_por = NULL WHERE reportado_por = ?', [profile_id]);
+
+    // Delete profile → cascades to student → documents, payments, absences, departure/registration logs
+    await pool.query('DELETE FROM profiles WHERE id = ?', [profile_id]);
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

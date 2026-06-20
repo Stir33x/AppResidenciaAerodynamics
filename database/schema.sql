@@ -73,7 +73,8 @@ CREATE TABLE IF NOT EXISTS cleaning_blocks (
 CREATE TABLE IF NOT EXISTS cleaning_block_rooms (
   id INT AUTO_INCREMENT PRIMARY KEY,
   block_id INT NOT NULL,
-  room_name VARCHAR(20) NOT NULL,
+  room_name VARCHAR(100) NOT NULL,
+  tipo ENUM('room','zone') NOT NULL DEFAULT 'room',
   completada_por INT DEFAULT NULL,
   fecha_completada DATE DEFAULT NULL,
   FOREIGN KEY (block_id) REFERENCES cleaning_blocks(id) ON DELETE CASCADE,
@@ -88,6 +89,28 @@ CREATE TABLE IF NOT EXISTS student_absences (
   hora_fin TIME NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS cleaning_checklist_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tipo ENUM('room','zone') NOT NULL DEFAULT 'room',
+  zone_id INT DEFAULT NULL,
+  nombre VARCHAR(200) NOT NULL,
+  orden INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (zone_id) REFERENCES common_zones(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS cleaning_checklist_completions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  cleaning_block_room_id INT NOT NULL,
+  checklist_item_id INT NOT NULL,
+  fecha DATE NOT NULL,
+  completada BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMP NULL DEFAULT NULL,
+  UNIQUE KEY uq_checklist_daily (cleaning_block_room_id, checklist_item_id, fecha),
+  FOREIGN KEY (cleaning_block_room_id) REFERENCES cleaning_block_rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (checklist_item_id) REFERENCES cleaning_checklist_items(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS incidencias (
@@ -119,8 +142,10 @@ CREATE TABLE IF NOT EXISTS horarios (
 CREATE TABLE IF NOT EXISTS pagos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   student_id INT NOT NULL,
+  tipo ENUM('regular','extra') NOT NULL DEFAULT 'regular',
   periodo VARCHAR(20) NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
+  descripcion TEXT DEFAULT NULL,
   fecha_vencimiento DATE NOT NULL,
   fecha_cobro DATE DEFAULT NULL,
   estado ENUM('pendiente','cobrado','vencido','anulado') DEFAULT 'pendiente',
@@ -146,6 +171,25 @@ CREATE TABLE IF NOT EXISTS documents (
   FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
   FOREIGN KEY (subido_por) REFERENCES profiles(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+-- ============================================================
+-- TIPOS DE DOCUMENTO (categorías editables)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS document_types (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(50) NOT NULL UNIQUE,
+  color VARCHAR(30) DEFAULT 'badge-soft',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO document_types (nombre, color) VALUES
+  ('contrato', 'badge-primary'),
+  ('documento', 'badge-soft'),
+  ('justificante', 'badge-info'),
+  ('parte', 'badge-warning'),
+  ('recibo', 'badge-success'),
+  ('otro', 'badge-soft');
 
 -- ============================================================
 -- HABITACIONES
@@ -178,6 +222,89 @@ INSERT IGNORE INTO common_zones (nombre) VALUES
   ('Lavandería'),
   ('Patio exterior'),
   ('Baño común planta baja');
+
+CREATE TABLE IF NOT EXISTS inventory_catalog (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(200) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS inventory_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  catalog_id INT NOT NULL,
+  tipo ENUM('room','zone') NOT NULL DEFAULT 'room',
+  room_name VARCHAR(100) DEFAULT NULL,
+  zone_id INT DEFAULT NULL,
+  cantidad INT DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (catalog_id) REFERENCES inventory_catalog(id) ON DELETE CASCADE,
+  FOREIGN KEY (zone_id) REFERENCES common_zones(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS departure_checklist_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(200) NOT NULL UNIQUE,
+  orden INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO departure_checklist_items (nombre, orden) VALUES
+  ('Recoger llaves', 1),
+  ('Revisar habitación (daños)', 2),
+  ('Devolver inventario de habitación', 3),
+  ('Liquidar pagos pendientes', 4),
+  ('Cerrar cuenta', 5);
+
+CREATE TABLE IF NOT EXISTS departure_checklist_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  checklist_item_id INT NOT NULL,
+  completada BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMP NULL DEFAULT NULL,
+  UNIQUE KEY uq_departure_item (student_id, checklist_item_id),
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (checklist_item_id) REFERENCES departure_checklist_items(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- REGISTRATION CHECKLIST (alta de alumno)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS registration_checklist_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(200) NOT NULL UNIQUE,
+  obligatorio BOOLEAN DEFAULT FALSE,
+  orden INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO registration_checklist_items (nombre, obligatorio, orden) VALUES
+  ('Registrar alumno en la plataforma', TRUE, 1),
+  ('Asignar habitación', FALSE, 2),
+  ('Entregar llaves / tarjeta acceso', FALSE, 3),
+  ('Firmar contrato de alojamiento', FALSE, 4),
+  ('Dar de alta domiciliación bancaria', FALSE, 5);
+
+-- ============================================================
+-- IMÁGENES (añadir columna a tablas existentes)
+-- ============================================================
+
+ALTER TABLE incidencias ADD COLUMN IF NOT EXISTS imagen VARCHAR(500) DEFAULT NULL;
+ALTER TABLE cleaning_block_rooms ADD COLUMN IF NOT EXISTS imagen VARCHAR(500) DEFAULT NULL;
+ALTER TABLE cleaning_block_rooms ADD COLUMN IF NOT EXISTS zone_id INT DEFAULT NULL,
+  ADD FOREIGN KEY IF NOT EXISTS (zone_id) REFERENCES common_zones(id) ON DELETE SET NULL;
+ALTER TABLE inventory_items MODIFY COLUMN tipo ENUM('room','zone','almacen') NOT NULL DEFAULT 'room';
+
+CREATE TABLE IF NOT EXISTS registration_checklist_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  checklist_item_id INT NOT NULL,
+  completada BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMP NULL DEFAULT NULL,
+  UNIQUE KEY uq_registration_item (student_id, checklist_item_id),
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (checklist_item_id) REFERENCES registration_checklist_items(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
 -- ============================================================
 -- USUARIO ADMIN POR DEFECTO (password: qwerty12345)

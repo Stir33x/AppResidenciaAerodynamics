@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../components/Toast'
 
 const tipos = ['transporte', 'residencia', 'cafeteria', 'comedor', 'recepci\u00f3n', 'instalaciones', 'otros']
 const dias = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
@@ -9,6 +10,7 @@ const dias = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1
 export default function SchedulesPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { addToast, confirm } = useToast()
   const isStaff = user?.rol !== 'estudiante'
   const [horarios, setHorarios] = useState([])
   const [filtroTipo, setFiltroTipo] = useState('')
@@ -68,13 +70,14 @@ export default function SchedulesPage() {
       }
       setShowModal(false)
       load()
-    } catch (err) { alert(err.message) }
+      addToast(t('common.saved'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
   }
 
   const handleDelete = async (h) => {
-    if (!confirm(t('schedules.confirm_delete', { title: h.titulo }))) return
-    try { await fetchApi(`/horarios/${h.id}`, { method: 'DELETE' }); load() }
-    catch (err) { alert(err.message) }
+    if (!await confirm(t('schedules.confirm_delete', { title: h.titulo }))) return
+    try { await fetchApi(`/horarios/${h.id}`, { method: 'DELETE' }); load(); addToast(t('common.deleted'), 'success') }
+    catch (err) { addToast(err.message, 'error') }
   }
 
   const noDayKey = t('schedules.no_day')
@@ -95,7 +98,7 @@ export default function SchedulesPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-3xl font-bold">{t('schedules.title')}</h1>
+        <h1 className="text-4xl font-bold">{t('schedules.title')}</h1>
         {isStaff && <button className="btn btn-primary" onClick={openCreate}>{t('schedules.new')}</button>}
       </div>
 

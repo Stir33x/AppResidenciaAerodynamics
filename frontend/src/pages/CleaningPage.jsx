@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../components/Toast'
 
 const DIAS = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
 
@@ -9,12 +10,9 @@ export default function CleaningPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const isAdmin = user?.rol === 'direccion' || user?.rol === 'administracion'
+  const isCleaner = user?.rol === 'limpieza'
   const [blocks, setBlocks] = useState([])
   const [todayData, setTodayData] = useState(null)
-  const [rooms, setRooms] = useState([])
-  const [showModal, setShowModal] = useState(false)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState({ dia_semana: 'Lunes', hora_inicio: '09:00', hora_fin: '13:00', selectedRooms: [] })
 
   const loadBlocks = async () => {
     const data = await fetchApi('/cleaning/blocks')
@@ -30,206 +28,316 @@ export default function CleaningPage() {
 
   useEffect(() => { loadToday() }, [])
   useEffect(() => {
-    if (isAdmin) {
-      loadBlocks()
-      fetchApi('/rooms').then(setRooms).catch(() => {})
-    }
+    if (isAdmin) loadBlocks()
   }, [isAdmin])
 
-  const openCreate = () => {
-    setForm({ dia_semana: 'Lunes', hora_inicio: '09:00', hora_fin: '13:00', selectedRooms: [] })
-    setError('')
-    setShowModal(true)
-  }
-
-  const toggleRoom = (nombre) => {
-    setForm((prev) => ({
-      ...prev,
-      selectedRooms: prev.selectedRooms.includes(nombre)
-        ? prev.selectedRooms.filter((r) => r !== nombre)
-        : [...prev.selectedRooms, nombre],
-    }))
-  }
-
-  const handleCreate = async (e) => {
-    e.preventDefault()
-    setError('')
-    if (form.selectedRooms.length === 0) return setError(t('cleaning.select_room_error'))
-    try {
-      await fetchApi('/cleaning/blocks', {
-        method: 'POST',
-        body: JSON.stringify({
-          dia_semana: form.dia_semana,
-          hora_inicio: form.hora_inicio,
-          hora_fin: form.hora_fin,
-          rooms: form.selectedRooms,
-        }),
-      })
-      setShowModal(false)
-      loadBlocks()
-      loadToday()
-    } catch (err) { setError(err.message) }
-  }
-
-  const handleDeleteBlock = async (id) => {
-    await fetchApi(`/cleaning/blocks/${id}`, { method: 'DELETE' })
-    loadBlocks()
+  const toggleComplete = async (roomId, imagen) => {
+    await fetchApi(`/cleaning/rooms/${roomId}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ imagen: imagen || null }),
+    })
     loadToday()
   }
 
-  const toggleComplete = async (roomId) => {
-    await fetchApi(`/cleaning/rooms/${roomId}/complete`, { method: 'POST' })
-    loadToday()
+  if (isCleaner) {
+    return <CleanerView todayData={todayData} toggleComplete={toggleComplete} t={t} />
   }
 
-  // Limpiadora: vista de hoy
-  if (user?.rol === 'limpieza') {
-    return (
-      <div className="flex flex-col gap-6">
-        <h1 className="text-3xl font-bold">{t('cleaning.today_title', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h1>
-        {(!todayData?.blocks || todayData.blocks.length === 0) && (
-          <div className="alert alert-soft">{t('cleaning.no_tasks')}</div>
-        )}
-        {todayData?.blocks?.map((block) => (
-          <div key={block.id} className="card bg-base-100 shadow-sm border">
-            <div className="card-body">
-              <h2 className="card-title">{block.hora_inicio?.slice(0, 5)} — {block.hora_fin?.slice(0, 5)}</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-2">
-                {block.rooms?.map((room) => (
-                  <div key={room.id} className={`border rounded-box p-3 ${room.completada_hoy ? 'bg-success/10 border-success' : ''}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-lg">{room.room_name}</span>
-                      <input type="checkbox" className="checkbox checkbox-success" checked={!!room.completada_hoy} onChange={() => toggleComplete(room.id)} />
-                    </div>
-                    {room.absences?.length > 0 && (
-                      <div className="mt-1 text-xs">
-                        {room.absences.map((a, i) => (
-                          <span key={i} className="badge badge-soft badge-info badge-xs mr-1">
-                            {a.nombre}: {a.hora_inicio?.slice(0, 5)}-{a.hora_fin?.slice(0, 5)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  // Admin: gestion de bloques
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{t('cleaning.admin_title')}</h1>
-        <button className="btn btn-primary" onClick={openCreate}>{t('cleaning.new_block')}</button>
-      </div>
+      <h1 className="text-4xl font-bold">{t('cleaning.admin_title')}</h1>
 
-      {error && <div className="alert alert-error text-sm">{error}</div>}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {DIAS.map((dia) => {
-          const delDia = blocks.filter((b) => b.dia_semana === dia)
-          const idx = DIAS.indexOf(dia)
-          return (
-            <div key={dia} className={`card shadow-sm border ${idx % 2 === 0 ? 'bg-base-100' : 'bg-base-200'}`}>
-              <div className="card-body p-4">
-                <h2 className="card-title text-lg mb-2">{t('days.' + dia)}</h2>
-                {delDia.length === 0 && <p className="text-sm opacity-50">{t('cleaning.no_schedules')}</p>}
-                {delDia.map((b) => (
-                  <div key={b.id} className="mb-2 p-2 bg-base-100 rounded-box border">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{b.hora_inicio?.slice(0, 5)} — {b.hora_fin?.slice(0, 5)}</span>
-                      <button className="btn btn-xs btn-ghost text-error" onClick={() => handleDeleteBlock(b.id)}>X</button>
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {b.rooms?.map((r) => (
-                        <span key={r.id} className="badge badge-soft badge-sm">{r.room_name}</span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
+      {/* Today's checklist progress (read-only for admin) */}
       <div className="card bg-base-100 shadow-sm border">
         <div className="card-body">
           <h2 className="card-title">{t('cleaning.today_section', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h2>
-          {todayData?.blocks?.length === 0 && <p className="text-sm opacity-60">{t('cleaning.no_tasks')}</p>}
-          {todayData?.blocks?.map((b) => (
-            <div key={b.id} className="mb-2">
-              <p className="font-medium">{b.hora_inicio?.slice(0, 5)} — {b.hora_fin?.slice(0, 5)}</p>
-              <div className="flex flex-wrap gap-1 mt-1">
-                {b.rooms?.map((r) => (
-                  <span key={r.id} className={`badge ${r.completada_hoy ? 'badge-success' : 'badge-soft badge-outline'}`}>
-                    {r.room_name}
-                  </span>
-                ))}
+          {(!todayData?.blocks || todayData.blocks.length === 0) && (
+            <div className="alert alert-soft">{t('cleaning.no_tasks')}</div>
+          )}
+          {todayData?.blocks?.map((block) => (
+            <div key={block.id} className="card bg-base-100 shadow-sm border mb-3">
+              <div className="card-body">
+                <h3 className="font-semibold">{block.hora_inicio?.slice(0, 5)} — {block.hora_fin?.slice(0, 5)}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+                  {block.rooms?.map((room) => (
+                    <ReadOnlyRoomCard key={room.id} room={room} t={t} />
+                  ))}
+                </div>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {showModal && (
-        <dialog className="modal modal-open" onClick={() => setShowModal(false)}>
-          <div className="modal-box max-w-lg" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center text-info">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">{t('cleaning.create_title')}</h3>
-                <p className="text-sm opacity-60">{t('cleaning.create_desc')}</p>
-              </div>
-            </div>
-            <form onSubmit={handleCreate} className="flex flex-col gap-4">
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('cleaning.day')}</span></label>
-                <select className="select select-bordered" value={form.dia_semana} onChange={(e) => setForm({ ...form, dia_semana: e.target.value })}>
-                  {DIAS.map((d) => <option key={d} value={d}>{t('days.' + d)}</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="form-control">
-                  <label className="label"><span className="label-text">{t('cleaning.start_time')}</span></label>
-                  <input type="time" className="input input-bordered" value={form.hora_inicio} onChange={(e) => setForm({ ...form, hora_inicio: e.target.value })} required />
+      {/* Weekly schedule (view-only) */}
+      <div className="card bg-base-100 shadow-sm border">
+        <div className="card-body">
+          <h2 className="card-title mb-4">{t('cleaning.schedules_subtitle')}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {DIAS.map((dia) => {
+              const delDia = blocks.filter((b) => b.dia_semana === dia)
+              const idx = DIAS.indexOf(dia)
+              return (
+                <div key={dia} className={`card shadow-sm border ${idx % 2 === 0 ? 'bg-base-100' : 'bg-base-200'}`}>
+                  <div className="card-body p-4">
+                    <h3 className="card-title text-lg mb-2">{t('days.' + dia)}</h3>
+                    {delDia.length === 0 && <p className="text-sm opacity-50">{t('cleaning.no_schedules')}</p>}
+                    {delDia.map((b) => (
+                      <div key={b.id} className="mb-2 p-2 bg-base-100 rounded-box border">
+                        <span className="text-sm font-medium">{b.hora_inicio?.slice(0, 5)} — {b.hora_fin?.slice(0, 5)}</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {b.rooms?.map((r) => (
+                            <span key={r.id} className={`badge badge-sm ${r.tipo === 'zone' ? 'badge-info' : 'badge-soft'}`}>
+                              {r.tipo === 'zone' && <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 mr-0.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>}
+                              {r.room_name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="form-control">
-                  <label className="label"><span className="label-text">{t('cleaning.end_time')}</span></label>
-                  <input type="time" className="input input-bordered" value={form.hora_fin} onChange={(e) => setForm({ ...form, hora_fin: e.target.value })} required />
-                </div>
-              </div>
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('cleaning.rooms')}</span></label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto border border-base-300 rounded-box p-3 bg-base-200/50">
-                  {rooms.map((r) => (
-                    <label key={r.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-base-200 transition-colors">
-                      <input type="checkbox" className="checkbox checkbox-xs checkbox-primary" checked={form.selectedRooms.includes(r.nombre)} onChange={() => toggleRoom(r.nombre)} />
-                      <span className="text-sm">{r.nombre}</span>
-                    </label>
-                  ))}
-                  {rooms.length === 0 && <p className="text-sm opacity-50 col-span-full">{t('cleaning.no_rooms')}</p>}
-                </div>
-                {form.selectedRooms.length > 0 && (
-                  <p className="text-xs text-primary mt-1">{t('cleaning.selected_rooms', { count: form.selectedRooms.length })}</p>
-                )}
-              </div>
-              <div className="modal-action">
-                <button type="button" className="btn btn-soft" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
-                <button type="submit" className="btn btn-primary">{t('cleaning.create_block', { count: form.selectedRooms.length })}</button>
-              </div>
-            </form>
+              )
+            })}
           </div>
-        </dialog>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CleanerView({ todayData, toggleComplete, t }) {
+  const { addToast } = useToast()
+  const [checklistStates, setChecklistStates] = useState({})
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!todayData?.blocks) return
+    const hoy = new Date().toISOString().slice(0, 10)
+    const initial = {}
+    const promises = []
+    for (const block of todayData.blocks) {
+      for (const room of block.rooms) {
+        promises.push(
+          (async () => {
+            const completions = await fetchApi(`/cleaning/checklist-completions?cleaning_block_room_id=${room.id}&fecha=${hoy}`)
+            return { roomId: room.id, completions }
+          })()
+        )
+      }
+    }
+    Promise.all(promises).then((results) => {
+      const map = {}
+      for (const r of results) {
+        for (const c of r.completions) {
+          map[`${r.roomId}_${c.checklist_item_id}`] = c.completada === 1
+        }
+      }
+      setChecklistStates(map)
+    })
+  }, [todayData])
+
+  const toggleChecklistItem = (roomId, itemId) => {
+    setChecklistStates((prev) => ({
+      ...prev,
+      [`${roomId}_${itemId}`]: !prev[`${roomId}_${itemId}`],
+    }))
+  }
+
+  const saveChecklist = async (roomId, items) => {
+    setSaving(true)
+    const hoy = new Date().toISOString().slice(0, 10)
+    try {
+      await fetchApi('/cleaning/checklist-completions', {
+        method: 'POST',
+        body: JSON.stringify({
+          cleaning_block_room_id: roomId,
+          fecha: hoy,
+          items: items.map((item) => ({
+            checklist_item_id: item.id,
+            completada: checklistStates[`${roomId}_${item.id}`] || false,
+          })),
+        }),
+      })
+    } catch (err) { addToast(err.message, 'error') }
+    setSaving(false)
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <h1 className="text-4xl font-bold">{t('cleaning.today_title', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h1>
+      {(!todayData?.blocks || todayData.blocks.length === 0) && (
+        <div className="alert alert-soft">{t('cleaning.no_tasks')}</div>
+      )}
+      {todayData?.blocks?.map((block) => (
+        <div key={block.id} className="card bg-base-100 shadow-sm border">
+          <div className="card-body">
+            <h2 className="card-title">{block.hora_inicio?.slice(0, 5)} — {block.hora_fin?.slice(0, 5)}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+              {block.rooms?.map((room) => (
+                <RoomChecklistCard
+                  key={room.id}
+                  room={room}
+                  blockId={block.id}
+                  checklistStates={checklistStates}
+                  toggleChecklistItem={toggleChecklistItem}
+                  toggleComplete={toggleComplete}
+                  saveChecklist={saveChecklist}
+                  saving={saving}
+                  t={t}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ReadOnlyRoomCard({ room, t }) {
+  const [items, setItems] = useState([])
+  const completionsUrl = room.id ? `/cleaning/checklist-completions?cleaning_block_room_id=${room.id}&fecha=${new Date().toISOString().slice(0, 10)}` : null
+  const [completions, setCompletions] = useState({})
+
+  useEffect(() => {
+    const tipo = room.tipo || 'room'
+    const zoneId = room.zone_id || null
+    let url = `/cleaning/checklist-items?tipo=${tipo}`
+    if (zoneId) url += `&zone_id=${zoneId}`
+    fetchApi(url).then(setItems).catch(() => {})
+    if (completionsUrl) {
+      fetchApi(completionsUrl).then((data) => {
+        const map = {}
+        for (const c of data) map[c.checklist_item_id] = c.completada === 1
+        setCompletions(map)
+      }).catch(() => {})
+    }
+  }, [room, completionsUrl])
+
+  return (
+    <div className={`border rounded-box p-3 ${room.completada_hoy ? 'bg-success/10 border-success' : ''}`}>
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {room.tipo === 'zone' && (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-info"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
+          )}
+          <span className="font-bold text-lg">{room.room_name}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {room.completada_hoy && room.imagen && (
+            <img src={room.imagen} alt="foto" className="w-8 h-8 object-cover rounded cursor-pointer" onClick={() => window.open(room.imagen, '_blank')} />
+          )}
+          {room.completada_hoy ? (
+            <span className="badge badge-success badge-sm">{t('cleaning.completed')}</span>
+          ) : (
+            <span className="badge badge-soft badge-sm">{t('cleaning.pending')}</span>
+          )}
+        </div>
+      </div>
+
+      {items.length > 0 && (
+        <div className="flex flex-col gap-1 mt-2 pl-1 border-t pt-2 border-base-300">
+          {items.map((item) => (
+            <div key={item.id} className="flex items-center gap-2 py-0.5 px-1">
+              <input type="checkbox" className="checkbox checkbox-xs checkbox-primary" checked={!!completions[item.id]} disabled />
+              <span className={`text-sm ${completions[item.id] ? 'line-through opacity-50' : ''}`}>{item.nombre}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {room.absences?.length > 0 && (
+        <div className="mt-2 text-xs">
+          {room.absences.map((a, i) => (
+            <span key={i} className="badge badge-soft badge-info badge-xs mr-1">
+              {a.nombre}: {a.hora_inicio?.slice(0, 5)}-{a.hora_fin?.slice(0, 5)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RoomChecklistCard({ room, blockId, checklistStates, toggleChecklistItem, toggleComplete, saveChecklist, saving, t }) {
+  const { addToast } = useToast()
+  const [items, setItems] = useState([])
+  const [uploadingImg, setUploadingImg] = useState(false)
+
+  useEffect(() => {
+    const tipo = room.tipo || 'room'
+    const zoneId = room.zone_id || null
+    let url = `/cleaning/checklist-items?tipo=${tipo}`
+    if (zoneId) url += `&zone_id=${zoneId}`
+    fetchApi(url).then(setItems).catch(() => {})
+  }, [room])
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploadingImg(true)
+    try {
+      const fd = new FormData()
+      fd.append('imagen', file)
+      const res = await fetch('/api/upload/image', { method: 'POST', headers: { Authorization: localStorage.getItem('token') }, body: fd })
+      const data = await res.json()
+      if (data.url) toggleComplete(room.id, data.url)
+    } catch (err) { addToast(err.message, 'error') }
+    setUploadingImg(false)
+  }
+
+  return (
+    <div className={`border rounded-box p-3 ${room.completada_hoy ? 'bg-success/10 border-success' : ''}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {room.tipo === 'zone' && (
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-info"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
+          )}
+          <span className="font-bold text-lg">{room.room_name}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {room.completada_hoy && room.imagen && (
+            <img src={room.imagen} alt="foto" className="w-8 h-8 object-cover rounded cursor-pointer" onClick={() => window.open(room.imagen, '_blank')} />
+          )}
+          {!room.completada_hoy && (
+            <label className={`btn btn-ghost btn-xs btn-square ${uploadingImg ? 'pointer-events-none' : ''}`}>
+              {uploadingImg ? (
+                <span className="loading loading-spinner loading-xs" />
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" /></svg>
+              )}
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleImageUpload} />
+            </label>
+          )}
+          <input type="checkbox" className="checkbox checkbox-success" checked={!!room.completada_hoy} onChange={() => toggleComplete(room.id)} />
+        </div>
+      </div>
+
+      {items.length > 0 && (
+        <div className="flex flex-col gap-1 mt-2 pl-1 border-t pt-2 border-base-300">
+          {items.map((item) => (
+            <label key={item.id} className="flex items-center gap-2 cursor-pointer py-0.5 hover:bg-base-200 rounded px-1 transition-colors">
+              <input type="checkbox" className="checkbox checkbox-xs checkbox-primary" checked={!!checklistStates?.[`${room.id}_${item.id}`]} onChange={() => toggleChecklistItem?.(room.id, item.id)} />
+              <span className={`text-sm ${checklistStates?.[`${room.id}_${item.id}`] ? 'line-through opacity-50' : ''}`}>{item.nombre}</span>
+            </label>
+          ))}
+          {saveChecklist && (
+            <button className="btn btn-xs btn-soft mt-1 self-end" disabled={saving} onClick={() => saveChecklist(room.id, items)}>
+              {saving ? <span className="loading loading-spinner loading-xs" /> : t('cleaning.save_checklist')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {room.absences?.length > 0 && (
+        <div className="mt-2 text-xs">
+          {room.absences.map((a, i) => (
+            <span key={i} className="badge badge-soft badge-info badge-xs mr-1">
+              {a.nombre}: {a.hora_inicio?.slice(0, 5)}-{a.hora_fin?.slice(0, 5)}
+            </span>
+          ))}
+        </div>
       )}
     </div>
   )

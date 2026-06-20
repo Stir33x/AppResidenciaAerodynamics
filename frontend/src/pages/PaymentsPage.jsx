@@ -14,29 +14,37 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState([])
   const [students, setStudents] = useState([])
   const [filtroEstado, setFiltroEstado] = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({
-    student_id: '', periodo: '', importe: '',
-    fecha_vencimiento: '', fecha_cobro: '', referencia_mandato: '',
+    student_id: '', tipo: 'regular', periodo: '', importe: '',
+    descripcion: '', fecha_vencimiento: '', fecha_cobro: '', referencia_mandato: '',
   })
   const [forecast, setForecast] = useState(null)
 
+  const buildQs = () => {
+    const p = new URLSearchParams()
+    if (filtroEstado) p.set('estado', filtroEstado)
+    if (filtroTipo) p.set('tipo', filtroTipo)
+    const s = p.toString()
+    return s ? `?${s}` : ''
+  }
+
   const load = async () => {
-    const qs = filtroEstado ? `?estado=${filtroEstado}` : ''
-    const data = await fetchApi(`/pagos${qs}`)
+    const data = await fetchApi(`/pagos${buildQs()}`)
     setPayments(data)
   }
 
   useEffect(() => {
     (async () => { await load() })()
-  }, [filtroEstado])
+  }, [filtroEstado, filtroTipo])
   useEffect(() => { if (isStaff) fetchApi('/students').then(setStudents) }, [isStaff])
   useEffect(() => { if (isStaff) fetchApi('/pagos/forecast').then(setForecast) }, [isStaff])
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ student_id: '', periodo: '', importe: '', fecha_vencimiento: '', fecha_cobro: '', referencia_mandato: '' })
+    setForm({ student_id: '', tipo: 'regular', periodo: '', importe: '', descripcion: '', fecha_vencimiento: '', fecha_cobro: '', referencia_mandato: '' })
     setShowModal(true)
   }
 
@@ -44,8 +52,10 @@ export default function PaymentsPage() {
     setEditing(p)
     setForm({
       student_id: p.student_id,
+      tipo: p.tipo || 'regular',
       periodo: p.periodo,
       importe: p.importe,
+      descripcion: p.descripcion || '',
       fecha_vencimiento: p.fecha_vencimiento ? p.fecha_vencimiento.slice(0, 10) : '',
       fecha_cobro: p.fecha_cobro ? p.fecha_cobro.slice(0, 10) : '',
       referencia_mandato: p.referencia_mandato || '',
@@ -59,7 +69,9 @@ export default function PaymentsPage() {
       await fetchApi(`/pagos/${editing.id}`, {
         method: 'PUT',
         body: JSON.stringify({
+          tipo: form.tipo,
           importe: form.importe ? parseFloat(form.importe) : undefined,
+          descripcion: form.descripcion || undefined,
           fecha_vencimiento: form.fecha_vencimiento || undefined,
           fecha_cobro: form.fecha_cobro || null,
           estado: form.estado || undefined,
@@ -71,8 +83,10 @@ export default function PaymentsPage() {
         method: 'POST',
         body: JSON.stringify({
           student_id: parseInt(form.student_id),
+          tipo: form.tipo,
           periodo: form.periodo,
           importe: parseFloat(form.importe),
+          descripcion: form.descripcion || null,
           fecha_vencimiento: form.fecha_vencimiento,
           fecha_cobro: form.fecha_cobro || null,
           referencia_mandato: form.referencia_mandato,
@@ -88,10 +102,16 @@ export default function PaymentsPage() {
     return <span className={`badge ${cls[e] || ''}`}>{t(`payment_states.${e}`)}</span>
   }
 
+  const tipoBadge = (tipo) => {
+    return tipo === 'extra'
+      ? <span className="badge badge-soft badge-warning">{t('payments.extra')}</span>
+      : <span className="badge badge-soft">{t('payments.regular')}</span>
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-3xl font-bold">{t('payments.title')}</h1>
+        <h1 className="text-4xl font-bold">{t('payments.title')}</h1>
         {isStaff && (
           <div className="flex gap-2">
             <button className="btn btn-primary" onClick={openCreate}>{t('payments.new')}</button>
@@ -99,11 +119,16 @@ export default function PaymentsPage() {
         )}
       </div>
 
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-2 items-center flex-wrap">
         <span className="text-sm opacity-70">{t('payments.filter')}</span>
         <select className="select select-bordered select-sm" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
           <option value="">{t('payments.all_statuses')}</option>
           {estados.map((e) => <option key={e} value={e}>{t(`payment_states.${e}`)}</option>)}
+        </select>
+        <select className="select select-bordered select-sm" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
+          <option value="">{t('payments.all_types')}</option>
+          <option value="regular">{t('payments.regular')}</option>
+          <option value="extra">{t('payments.extra')}</option>
         </select>
       </div>
 
@@ -115,6 +140,7 @@ export default function PaymentsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={(() => {
                   const merged = {}
+                  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre','january','february','march','april','may','june','july','august','september','october','november','december']
                   for (const r of forecast.realPayments) {
                     merged[r.periodo] = { periodo: r.periodo, cobrado: parseFloat(r.cobrado), pendiente: parseFloat(r.pendiente), vencido: parseFloat(r.vencido), projected: 0 }
                   }
@@ -122,7 +148,14 @@ export default function PaymentsPage() {
                     if (merged[p.periodo]) merged[p.periodo].projected = p.projected
                     else merged[p.periodo] = { periodo: p.periodo, cobrado: 0, pendiente: 0, vencido: 0, projected: p.projected }
                   }
-                  return Object.values(merged)
+                  return Object.values(merged).sort((a, b) => {
+                    const pa = a.periodo.toLowerCase().match(/(\w+)\s+(\d+)/)
+                    const pb = b.periodo.toLowerCase().match(/(\w+)\s+(\d+)/)
+                    if (!pa || !pb) return 0
+                    const ya = parseInt(pa[2]), yb = parseInt(pb[2])
+                    if (ya !== yb) return ya - yb
+                    return meses.indexOf(pa[1]) - meses.indexOf(pb[1])
+                  })
                 })()}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-base-300" />
                   <XAxis dataKey="periodo" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" height={50} />
@@ -146,6 +179,7 @@ export default function PaymentsPage() {
             <tr>
               {isStaff && <th>{t('payments.student')}</th>}
               {isStaff && <th>{t('payments.room')}</th>}
+              <th>{t('payments.type')}</th>
               <th>{t('payments.period')}</th>
               <th>{t('payments.amount')}</th>
               <th>{t('payments.due_date')}</th>
@@ -160,6 +194,7 @@ export default function PaymentsPage() {
               <tr key={p.id}>
                 {isStaff && <td>{p.nombre} {p.apellidos}</td>}
                 {isStaff && <td>{p.habitacion}</td>}
+                <td>{tipoBadge(p.tipo)}</td>
                 <td>{p.periodo}</td>
                 <td>{parseFloat(p.importe).toFixed(2)} €</td>
                 <td>{p.fecha_vencimiento ? new Date(p.fecha_vencimiento).toLocaleDateString('es-ES') : '-'}</td>
@@ -174,7 +209,7 @@ export default function PaymentsPage() {
               </tr>
             ))}
             {payments.length === 0 && (
-              <tr><td colSpan={isStaff ? 9 : 6} className="text-center opacity-60 py-8">{t('payments.empty')}</td></tr>
+              <tr><td colSpan={isStaff ? 10 : 7} className="text-center opacity-60 py-8">{t('payments.empty')}</td></tr>
             )}
           </tbody>
         </table>
@@ -217,6 +252,13 @@ export default function PaymentsPage() {
                   </div>
                 </div>
               )}
+              <div className="form-control">
+                <label className="label"><span className="label-text">{t('payments.type')}</span></label>
+                <select className="select select-bordered" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
+                  <option value="regular">{t('payments.regular')}</option>
+                  <option value="extra">{t('payments.extra')}</option>
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="form-control">
                   <label className="label"><span className="label-text">{t('payments.period')}</span></label>
@@ -229,6 +271,10 @@ export default function PaymentsPage() {
                     <span className="join-item bg-base-200 flex items-center px-3 text-sm opacity-60">€</span>
                   </div>
                 </div>
+              </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text">{t('payments.description')}</span></label>
+                <input className="input input-bordered" placeholder={t('payments.desc_placeholder')} value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="form-control">

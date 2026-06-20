@@ -26,12 +26,13 @@ router.get('/blocks', requireRole('direccion', 'administracion'), async (req, re
   }
 });
 
-// POST /api/cleaning/blocks — crear bloque con varias habitaciones
+// POST /api/cleaning/blocks — crear bloque con habitaciones y zonas comunes
 router.post('/blocks', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { dia_semana, hora_inicio, hora_fin, rooms } = req.body;
-    if (!dia_semana || !hora_inicio || !hora_fin || !rooms?.length) {
-      return res.status(400).json({ error: 'Faltan datos: día, hora_inicio, hora_fin, rooms[]' });
+    const { dia_semana, hora_inicio, hora_fin, rooms, zones } = req.body;
+    const locations = [...(rooms || []), ...(zones || [])];
+    if (!dia_semana || !hora_inicio || !hora_fin || locations.length === 0) {
+      return res.status(400).json({ error: 'Faltan datos: día, hora_inicio, hora_fin, rooms[] o zones[]' });
     }
     if (!DIAS.includes(dia_semana)) {
       return res.status(400).json({ error: `Día inválido. Usar: ${DIAS.join(', ')}` });
@@ -42,11 +43,20 @@ router.post('/blocks', requireRole('direccion', 'administracion'), async (req, r
       [dia_semana, hora_inicio, hora_fin]
     );
 
-    for (const room of rooms) {
+    for (const room of (rooms || [])) {
       await pool.query(
-        'INSERT INTO cleaning_block_rooms (block_id, room_name) VALUES (?, ?)',
-        [result.insertId, room]
+        'INSERT INTO cleaning_block_rooms (block_id, room_name, tipo) VALUES (?, ?, ?)',
+        [result.insertId, room, 'room']
       );
+    }
+    for (const zoneId of (zones || [])) {
+      const [zone] = await pool.query('SELECT nombre FROM common_zones WHERE id = ?', [zoneId]);
+      if (zone.length > 0) {
+        await pool.query(
+          'INSERT INTO cleaning_block_rooms (block_id, room_name, tipo, zone_id) VALUES (?, ?, ?, ?)',
+          [result.insertId, zone[0].nombre, 'zone', zoneId]
+        );
+      }
     }
 
     res.status(201).json({ id: result.insertId });
@@ -116,16 +126,17 @@ router.post('/rooms/:id/complete', async (req, res) => {
   try {
     const roomId = req.params.id;
     const hoy = new Date().toISOString().slice(0, 10);
+    const { imagen } = req.body;
 
     const [room] = await pool.query('SELECT * FROM cleaning_block_rooms WHERE id = ?', [roomId]);
     if (room.length === 0) return res.status(404).json({ error: 'No encontrado' });
 
     if (room[0].fecha_completada === hoy) {
-      await pool.query('UPDATE cleaning_block_rooms SET completada_por = NULL, fecha_completada = NULL WHERE id = ?', [roomId]);
+      await pool.query('UPDATE cleaning_block_rooms SET completada_por = NULL, fecha_completada = NULL, imagen = NULL WHERE id = ?', [roomId]);
       res.json({ completada: false });
     } else {
-      await pool.query('UPDATE cleaning_block_rooms SET completada_por = ?, fecha_completada = ? WHERE id = ?', [req.user.id, hoy, roomId]);
-      res.json({ completada: true });
+      await pool.query('UPDATE cleaning_block_rooms SET completada_por = ?, fecha_completada = ?, imagen = ? WHERE id = ?', [req.user.id, hoy, imagen || null, roomId]);
+      res.json({ completada: true, imagen: imagen || null });
     }
   } catch (err) {
     console.error(err);
@@ -185,6 +196,93 @@ router.get('/absence', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Error del servidor' });
   }
+});
+
+
+// GET /api/cleaning/checklist-items?tipo=room|zone&zone_id=X
+router.get('/checklist-items', requireRole('direccion', 'administracion', 'limpieza'), async (req, res) => {
+  try {
+    const { tipo, zone_id } = req.query;
+    let sql = 'SELECT * FROM cleaning_checklist_items WHERE 1=1';
+    const params = [];
+    if (tipo) { sql += ' AND tipo = ?'; params.push(tipo); }
+    if (zone_id) { sql += ' AND zone_id = ?'; params.push(zone_id); }
+    sql += ' ORDER BY orden ASC, id ASC';
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+
+// POST /api/cleaning/checklist-items
+router.post('/checklist-items', requireRole('direccion', 'administracion'), async (req, res) => {
+  try {
+    const { tipo, zone_id, nombre } = req.body;
+    if (!nombre || !nombre.trim()) return res.status(400).json({ error: 'Nombre requerido' });
+    const [result] = await pool.query(
+      'INSERT INTO cleaning_checklist_items (tipo, zone_id, nombre) VALUES (?, ?, ?)',
+      [tipo || 'room', zone_id || null, nombre.trim()]
+    );
+    res.status(201).json({ id: result.insertId });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+
+// PUT /api/cleaning/checklist-items/:id
+router.put('/checklist-items/:id', requireRole('direccion', 'administracion'), async (req, res) => {
+  try {
+    const { nombre } = req.body;
+    await pool.query('UPDATE cleaning_checklist_items SET nombre = ? WHERE id = ?', [nombre.trim(), req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+
+// DELETE /api/cleaning/checklist-items/:id
+router.delete('/checklist-items/:id', requireRole('direccion', 'administracion'), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM cleaning_checklist_items WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+
+// ==================== CHECKLIST COMPLETIONS ====================
+
+// GET /api/cleaning/checklist-completions?cleaning_block_room_id=X&fecha=YYYY-MM-DD
+router.get('/checklist-completions', async (req, res) => {
+  try {
+    const { cleaning_block_room_id, fecha } = req.query;
+    if (!cleaning_block_room_id || !fecha) return res.status(400).json({ error: 'cleaning_block_room_id y fecha requeridos' });
+    const [rows] = await pool.query(
+      'SELECT * FROM cleaning_checklist_completions WHERE cleaning_block_room_id = ? AND fecha = ?',
+      [cleaning_block_room_id, fecha]
+    );
+    res.json(rows);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+
+// POST /api/cleaning/checklist-completions — guardar checklists de un room/zone para hoy
+router.post('/checklist-completions', async (req, res) => {
+  try {
+    const { cleaning_block_room_id, fecha, items } = req.body;
+    // items: [{ checklist_item_id, completada }]
+    if (!cleaning_block_room_id || !fecha || !items) return res.status(400).json({ error: 'Datos incompletos' });
+
+    // Upsert each item
+    for (const item of items) {
+      await pool.query(
+        `INSERT INTO cleaning_checklist_completions (cleaning_block_room_id, checklist_item_id, fecha, completada, completed_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE completada = VALUES(completada), completed_at = VALUES(completed_at)`,
+        [
+          cleaning_block_room_id,
+          item.checklist_item_id,
+          fecha,
+          item.completada ? 1 : 0,
+          item.completada ? new Date() : null
+        ]
+      );
+    }
+
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
 });
 
 module.exports = router;

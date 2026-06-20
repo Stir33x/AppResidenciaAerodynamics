@@ -244,7 +244,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               { key: 'active', label: t('dashboard.stats_active'), value: stats?.students_active, color: 'text-primary', bg: 'bg-primary/5', border: 'border-primary/20' },
-              { key: 'cleaning', label: t('dashboard.stats_cleaning', { dia: todayCleaning?.dia }), value: todayCleaning?.blocks?.length, color: 'text-accent', bg: 'bg-accent/5', border: 'border-accent/20' },
+              { key: 'cleaning', label: t('dashboard.stats_cleaning', { dia: todayCleaning?.dia }), value: todayCleaning?.blocks?.reduce((acc, b) => acc + (b.rooms?.length || 0), 0), color: 'text-accent', bg: 'bg-accent/5', border: 'border-accent/20' },
               { key: 'incidents', label: t('dashboard.stats_incidents'), value: stats?.incidents_open, color: 'text-warning', bg: 'bg-warning/5', border: 'border-warning/20' },
               { key: 'payments', label: t('dashboard.stats_payments'), value: stats?.payments_pending, color: 'text-error', bg: 'bg-error/5', border: 'border-error/20' },
             ].map((item) => (

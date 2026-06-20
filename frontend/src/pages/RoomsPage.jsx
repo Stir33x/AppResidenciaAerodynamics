@@ -48,7 +48,7 @@ export default function RoomsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold">{t('rooms.title')}</h1>
+      <h1 className="text-4xl font-bold">{t('rooms.title')}</h1>
 
       <div className="card bg-base-100 border shadow-sm">
         <div className="card-body p-4">

@@ -71,7 +71,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/incidencias
 router.post('/', async (req, res) => {
   try {
-    const { habitacion, tipo, descripcion } = req.body;
+    const { habitacion, tipo, descripcion, imagen } = req.body;
     if (!descripcion) {
       return res.status(400).json({ error: 'Descripción requerida' });
     }
@@ -96,8 +96,8 @@ router.post('/', async (req, res) => {
     }
 
     const [result] = await pool.query(
-      'INSERT INTO incidencias (reportado_por, habitacion, tipo, descripcion) VALUES (?, ?, ?, ?)',
-      [req.user.id, habitacion || '', tipo || 'normal', descripcion]
+      'INSERT INTO incidencias (reportado_por, habitacion, tipo, descripcion, imagen) VALUES (?, ?, ?, ?, ?)',
+      [req.user.id, habitacion || '', tipo || 'normal', descripcion, imagen || null]
     );
 
     res.status(201).json({ id: result.insertId });

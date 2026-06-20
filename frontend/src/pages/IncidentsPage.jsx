@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../components/Toast'
 
 const tipos = ['urgente', 'normal', 'baja']
 const estados = ['reportada', 'en_curso', 'resuelta', 'cerrada']
@@ -9,8 +10,8 @@ const estados = ['reportada', 'en_curso', 'resuelta', 'cerrada']
 export default function IncidentsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { addToast } = useToast()
   const isStaff = user?.rol !== 'estudiante'
-  const canManageZones = user?.rol === 'direccion' || user?.rol === 'administracion'
   const [incidents, setIncidents] = useState([])
   const [staff, setStaff] = useState([])
   const [rooms, setRooms] = useState([])
@@ -19,10 +20,9 @@ export default function IncidentsPage() {
   const [filtroTipo, setFiltroTipo] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ habitacion: '', tipo: 'normal', descripcion: '' })
+  const [form, setForm] = useState({ habitacion: '', tipo: 'normal', descripcion: '', imagen: '' })
+  const [uploadingImg, setUploadingImg] = useState(false)
   const [editForm, setEditForm] = useState({ estado: '', asignado_a: '', tipo: '' })
-  const [showZonesModal, setShowZonesModal] = useState(false)
-  const [newZone, setNewZone] = useState('')
 
   const load = async () => {
     const params = new URLSearchParams()
@@ -46,7 +46,7 @@ export default function IncidentsPage() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ habitacion: '', tipo: 'normal', descripcion: '' })
+    setForm({ habitacion: '', tipo: 'normal', descripcion: '', imagen: '' })
     setShowModal(true)
   }
 
@@ -61,11 +61,12 @@ export default function IncidentsPage() {
     try {
       await fetchApi('/incidencias', {
         method: 'POST',
-        body: JSON.stringify({ habitacion: form.habitacion, tipo: form.tipo, descripcion: form.descripcion }),
+        body: JSON.stringify({ habitacion: form.habitacion, tipo: form.tipo, descripcion: form.descripcion, imagen: form.imagen || null }),
       })
       setShowModal(false)
       load()
-    } catch (err) { alert(err.message) }
+      addToast(t('common.saved'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
   }
 
   const handleEdit = async (e) => {
@@ -81,27 +82,8 @@ export default function IncidentsPage() {
       })
       setShowModal(false)
       load()
-    } catch (err) { alert(err.message) }
-  }
-
-  const handleAddZone = async (e) => {
-    e.preventDefault()
-    try {
-      await fetchApi('/common-zones', {
-        method: 'POST',
-        body: JSON.stringify({ nombre: newZone }),
-      })
-      setNewZone('')
-      fetchApi('/common-zones').then(setCommonZones).catch(() => {})
-    } catch (err) { alert(err.message) }
-  }
-
-  const handleDeleteZone = async (id) => {
-    if (!confirm(t('incidents.confirm_delete_zone'))) return
-    try {
-      await fetchApi(`/common-zones/${id}`, { method: 'DELETE' })
-      fetchApi('/common-zones').then(setCommonZones).catch(() => {})
-    } catch (err) { alert(err.message) }
+      addToast(t('common.saved'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
   }
 
   const studentRoom = user?.habitacion
@@ -119,11 +101,8 @@ export default function IncidentsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-3xl font-bold">{t('incidents.title')}</h1>
+        <h1 className="text-4xl font-bold">{t('incidents.title')}</h1>
         <div className="flex gap-2">
-          {canManageZones && (
-            <button className="btn btn-soft" onClick={() => setShowZonesModal(true)}>{t('incidents.common_zones')}</button>
-          )}
           <button className="btn btn-primary" onClick={openCreate}>{t('incidents.new')}</button>
         </div>
       </div>
@@ -151,6 +130,7 @@ export default function IncidentsPage() {
               <th>{t('incidents.description')}</th>
               <th>{t('incidents.status')}</th>
               <th>{t('incidents.assigned_to')}</th>
+              <th>{t('incidents.photo')}</th>
               {isStaff && <th>{t('incidents.actions')}</th>}
             </tr>
           </thead>
@@ -164,6 +144,13 @@ export default function IncidentsPage() {
                 <td className="max-w-xs truncate">{inc.descripcion}</td>
                 <td>{estadoBadge(inc.estado)}</td>
                 <td className="text-sm">{inc.asignado_nombre ? `${inc.asignado_nombre} ${inc.asignado_apellidos}` : '-'}</td>
+                <td>
+                  {inc.imagen ? (
+                    <img src={inc.imagen} alt="foto" className="w-12 h-12 object-cover rounded-lg cursor-pointer" onClick={() => window.open(inc.imagen, '_blank')} />
+                  ) : (
+                    <span className="text-xs opacity-50">{t('incidents.no_photo')}</span>
+                  )}
+                </td>
                 {isStaff && (
                   <td>
                     <button className="btn btn-xs btn-ghost" onClick={() => openEdit(inc)}>{t('incidents.manage')}</button>
@@ -172,7 +159,7 @@ export default function IncidentsPage() {
               </tr>
             ))}
             {incidents.length === 0 && (
-              <tr><td colSpan={isStaff ? 8 : 7} className="text-center opacity-60 py-8">{t('incidents.empty')}</td></tr>
+              <tr><td colSpan={isStaff ? 9 : 8} className="text-center opacity-60 py-8">{t('incidents.empty')}</td></tr>
             )}
           </tbody>
         </table>
@@ -225,6 +212,34 @@ export default function IncidentsPage() {
                 <label className="label"><span className="label-text">{t('incidents.description')}</span></label>
                 <textarea className="textarea textarea-bordered h-28" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })} required placeholder={t('incidents.desc_placeholder')} />
               </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text">{t('incidents.photo')}</span></label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="file-input file-input-bordered flex-1"
+                    disabled={uploadingImg}
+                    onChange={async (e) => {
+                      const file = e.target.files[0]
+                      if (!file) return
+                      setUploadingImg(true)
+                      try {
+                        const fd = new FormData()
+                        fd.append('imagen', file)
+                        const res = await fetch('/api/upload/image', { method: 'POST', headers: { Authorization: localStorage.getItem('token') }, body: fd })
+                        const data = await res.json()
+                        if (data.url) setForm({ ...form, imagen: data.url })
+                      } catch (err) { addToast(err.message, 'error') }
+                      setUploadingImg(false)
+                    }}
+                  />
+                  {uploadingImg && <span className="loading loading-spinner loading-sm" />}
+                </div>
+                {form.imagen && (
+                  <img src={form.imagen} alt="preview" className="mt-2 w-24 h-24 object-cover rounded-lg" />
+                )}
+              </div>
               <div className="modal-action">
                 <button type="button" className="btn btn-soft" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary">{t('common.create')}</button>
@@ -261,6 +276,12 @@ export default function IncidentsPage() {
                 <span className="font-medium opacity-70 w-20 shrink-0">{t('incidents.description')}:</span>
                 <span className="opacity-80">{editing.descripcion}</span>
               </div>
+              {editing.imagen && (
+                <div className="mt-3">
+                  <span className="font-medium opacity-70 text-xs">{t('incidents.photo')}</span>
+                  <img src={editing.imagen} alt="foto" className="mt-1 w-full max-h-48 object-cover rounded-lg cursor-pointer" onClick={() => window.open(editing.imagen, '_blank')} />
+                </div>
+              )}
             </div>
             <form onSubmit={handleEdit} className="flex flex-col gap-4">
               <div className="grid grid-cols-2 gap-3">
@@ -295,46 +316,6 @@ export default function IncidentsPage() {
         </dialog>
       )}
 
-      {showZonesModal && (
-        <dialog className="modal modal-open" onClick={() => setShowZonesModal(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-base-200 flex items-center justify-center text-base-content">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-bold text-lg">{t('incidents.zones_title')}</h3>
-                <p className="text-sm opacity-60">{t('incidents.zones_desc')}</p>
-              </div>
-            </div>
-            <form onSubmit={handleAddZone} className="join w-full mb-4">
-              <input className="input input-bordered join-item flex-1" value={newZone} onChange={(e) => setNewZone(e.target.value)} placeholder={t('incidents.zone_placeholder')} required />
-              <button type="submit" className="btn btn-primary join-item">{t('incidents.add_zone')}</button>
-            </form>
-            <div className="flex flex-col gap-1 max-h-60 overflow-y-auto">
-              {commonZones.map((z) => (
-                <div key={z.id} className="flex items-center justify-between px-3 py-2.5 bg-base-200 rounded-box">
-                  <div className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 opacity-50"><path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" /></svg>
-                    <span>{z.nombre}</span>
-                  </div>
-                  <button className="btn btn-ghost btn-xs text-error" onClick={() => handleDeleteZone(z.id)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                  </button>
-                </div>
-              ))}
-              {commonZones.length === 0 && (
-                <p className="text-sm opacity-60 text-center py-8">{t('incidents.zones_empty')}</p>
-              )}
-            </div>
-            <div className="modal-action">
-              <button type="button" className="btn" onClick={() => setShowZonesModal(false)}>{t('common.close')}</button>
-            </div>
-          </div>
-        </dialog>
-      )}
     </div>
   )
 }

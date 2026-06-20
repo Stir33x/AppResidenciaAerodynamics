@@ -2,20 +2,33 @@
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-
-const tiposDoc = ['contrato', 'documento', 'justificante', 'parte', 'recibo', 'otro']
+import { useToast } from '../components/Toast'
 
 export default function DocumentsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { addToast, confirm } = useToast()
   const isStaff = user?.rol !== 'estudiante'
   const [students, setStudents] = useState([])
   const [selected, setSelected] = useState(null)
   const [docs, setDocs] = useState([])
   const [uploading, setUploading] = useState(false)
   const [uploadTipo, setUploadTipo] = useState('documento')
+  const [tiposDoc, setTiposDoc] = useState([])
+  const [showTypesModal, setShowTypesModal] = useState(false)
+  const [newTypeNombre, setNewTypeNombre] = useState('')
+  const [newTypeColor, setNewTypeColor] = useState('badge-soft')
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState(null)
 
-  useEffect(() => { fetchApi('/students').then(setStudents).catch(() => {}) }, [])
+  useEffect(() => {
+    fetchApi('/document-types').then(setTiposDoc).catch(() => {})
+    fetchApi('/students').then(setStudents).catch(() => {})
+  }, [])
+
+  const loadTypes = async () => {
+    const data = await fetchApi('/document-types')
+    setTiposDoc(data)
+  }
 
   const loadDocs = async (studentId) => {
     const data = await fetchApi(`/students/${studentId}/documentos`)
@@ -46,16 +59,22 @@ export default function DocumentsPage() {
       })
       fileInput.value = ''
       loadDocs(selected.id)
-    } catch (err) { alert(err.message) }
+    } catch (err) { addToast(err.message, 'error') }
     setUploading(false)
   }
 
   const handleDelete = async (doc) => {
-    if (!confirm(t('documents.confirm_delete', { name: doc.nombre_original }))) return
+    setConfirmDeleteDoc(doc)
+  }
+
+  const executeDelete = async () => {
+    if (!confirmDeleteDoc) return
     try {
-      await fetchApi(`/students/${selected.id}/documentos/${doc.id}`, { method: 'DELETE' })
+      await fetchApi(`/students/${selected.id}/documentos/${confirmDeleteDoc.id}`, { method: 'DELETE' })
+      setConfirmDeleteDoc(null)
       loadDocs(selected.id)
-    } catch (err) { alert(err.message) }
+      addToast(t('common.deleted'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
   }
 
   const viewDocument = async (doc) => {
@@ -68,12 +87,31 @@ export default function DocumentsPage() {
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       window.open(url, '_blank')
-    } catch (err) { alert(err.message) }
+    } catch (err) { addToast(err.message, 'error') }
   }
 
   const tipoBadge = (docType) => {
-    const cls = { contrato: 'badge-primary', justificante: 'badge-info', parte: 'badge-warning', recibo: 'badge-success' }
-    return <span className={`badge ${cls[docType] || 'badge-soft'}`}>{t('doc_types.' + docType)}</span>
+    const found = tiposDoc.find((t) => t.nombre === docType)
+    return <span className={`badge ${found?.color || 'badge-soft'}`}>{found?.nombre || docType}</span>
+  }
+
+  const addType = async (e) => {
+    e.preventDefault()
+    if (!newTypeNombre.trim()) return
+    await fetchApi('/document-types', {
+      method: 'POST',
+      body: JSON.stringify({ nombre: newTypeNombre.trim(), color: newTypeColor }),
+    })
+    setNewTypeNombre('')
+    setNewTypeColor('badge-soft')
+    loadTypes()
+  }
+
+  const deleteType = async (id, name) => {
+    if (!await confirm(t('documents.confirm_delete_type', { name }))) return
+    await fetchApi(`/document-types/${id}`, { method: 'DELETE' })
+    loadTypes()
+    addToast(t('common.deleted'), 'success')
   }
 
   if (!isStaff) {
@@ -87,7 +125,13 @@ export default function DocumentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold">{t('documents.title')}</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-4xl font-bold">{t('documents.title')}</h1>
+        <button className="btn btn-sm btn-soft" onClick={() => setShowTypesModal(true)}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          {t('documents.manage_types')}
+        </button>
+      </div>
 
       <div className="flex gap-4 flex-wrap">
         <div className="w-full md:w-72 flex flex-col gap-1">
@@ -139,7 +183,7 @@ export default function DocumentsPage() {
                     <div className="form-control">
                       <label className="label py-1"><span className="label-text">{t('documents.type')}</span></label>
                       <select className="select select-bordered select-sm" value={uploadTipo} onChange={(e) => setUploadTipo(e.target.value)}>
-                        {tiposDoc.map((tp) => <option key={tp} value={tp}>{t('doc_types.' + tp)}</option>)}
+                        {tiposDoc.map((tp) => <option key={tp.id} value={tp.nombre}>{tp.nombre}</option>)}
                       </select>
                     </div>
                     <div className="form-control">
@@ -186,12 +230,87 @@ export default function DocumentsPage() {
           )}
         </div>
       </div>
+
+      {showTypesModal && (
+        <dialog className="modal modal-open" onClick={() => setShowTypesModal(false)}>
+          <div className="modal-box max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center text-info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">{t('documents.manage_types')}</h3>
+                <p className="text-sm opacity-60">{t('documents.manage_types_desc')}</p>
+              </div>
+            </div>
+
+            <form onSubmit={addType} className="flex flex-col gap-3 mb-4">
+              <input className="input input-bordered w-full" placeholder={t('documents.type_name_placeholder')} value={newTypeNombre} onChange={(e) => setNewTypeNombre(e.target.value)} required />
+              <div className="flex gap-2 items-end">
+                <div className="form-control flex-1">
+                  <label className="label py-1"><span className="label-text">{t('documents.type_color')}</span></label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { value: 'badge-soft', bg: 'bg-base-300' },
+                      { value: 'badge-primary', bg: 'bg-primary' },
+                      { value: 'badge-info', bg: 'bg-info' },
+                      { value: 'badge-success', bg: 'bg-success' },
+                      { value: 'badge-warning', bg: 'bg-warning' },
+                      { value: 'badge-error', bg: 'bg-error' },
+                      { value: 'badge-neutral', bg: 'bg-neutral' },
+                      { value: 'badge-outline', bg: 'bg-base-100 border border-base-300' },
+                    ].map((c) => (
+                      <button key={c.value} type="button" className={`w-7 h-7 rounded-full ${c.bg} ${newTypeColor === c.value ? 'ring-2 ring-offset-2 ring-primary' : ''}`} onClick={() => setNewTypeColor(c.value)} />
+                    ))}
+                  </div>
+                </div>
+                <button type="submit" className="btn btn-primary">{t('common.add')}</button>
+              </div>
+            </form>
+
+            <div className="flex flex-col gap-1">
+              {tiposDoc.map((tp) => (
+                <div key={tp.id} className="flex items-center justify-between p-2 bg-base-200 rounded-box">
+                  <span className={`badge ${tp.color || 'badge-soft'}`}>{tp.nombre}</span>
+                  <button className="btn btn-xs btn-ghost text-error" onClick={() => deleteType(tp.id, tp.nombre)}>{t('common.delete')}</button>
+                </div>
+              ))}
+              {tiposDoc.length === 0 && <p className="text-sm opacity-60 text-center py-4">{t('documents.no_types')}</p>}
+            </div>
+
+            <div className="modal-action">
+              <button className="btn btn-soft" onClick={() => setShowTypesModal(false)}>{t('common.close')}</button>
+            </div>
+          </div>
+        </dialog>
+      )}
+
+      {confirmDeleteDoc && (
+        <dialog className="modal modal-open" onClick={() => setConfirmDeleteDoc(null)}>
+          <div className="modal-box max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center text-error">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">{t('common.confirm')}</h3>
+                <p className="text-sm opacity-60">{t('documents.confirm_delete', { nombre: confirmDeleteDoc.nombre_original })}</p>
+              </div>
+            </div>
+            <div className="modal-action">
+              <button className="btn btn-soft" onClick={() => setConfirmDeleteDoc(null)}>{t('common.cancel')}</button>
+              <button className="btn btn-error" onClick={executeDelete}>{t('common.delete')}</button>
+            </div>
+          </div>
+        </dialog>
+      )}
     </div>
   )
 }
 
 function StudentDocumentsView({ email, tipoBadge }) {
   const { t } = useTranslation()
+  const { addToast } = useToast()
   const [myDocs, setMyDocs] = useState([])
   const [myStudent, setMyStudent] = useState(null)
 
@@ -209,7 +328,7 @@ function StudentDocumentsView({ email, tipoBadge }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-3xl font-bold">{t('documents.student_title')}</h1>
+      <h1 className="text-4xl font-bold">{t('documents.student_title')}</h1>
       <div className="card bg-base-100 border shadow-sm">
         <div className="card-body">
           <h2 className="card-title">{t('documents.student_of', { name: `${myStudent.nombre} ${myStudent.apellidos}` })}</h2>
@@ -237,7 +356,7 @@ function StudentDocumentsView({ email, tipoBadge }) {
                         if (!res.ok) throw new Error()
                         const blob = await res.blob()
                         window.open(URL.createObjectURL(blob), '_blank')
-                      } catch { alert(t('documents.open_error')) }
+                      } catch { addToast(t('documents.open_error'), 'error') }
                     }}
                   >{t('documents.view')}</button>
                 </div>
