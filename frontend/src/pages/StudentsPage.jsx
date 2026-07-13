@@ -241,7 +241,7 @@ export default function StudentsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-4xl font-bold">{t('students.title')}</h1>
+        <h1 className="page-title">{t('students.title')}</h1>
         <button className="btn btn-primary" onClick={openCreate}>{t('students.register')}</button>
       </div>
 
@@ -268,7 +268,7 @@ export default function StudentsPage() {
               <tr key={s.id}>
                 <td className="font-medium">{s.nombre} {s.apellidos}</td>
                 <td className="opacity-70">{s.email}</td>
-                <td><span className="badge badge-soft badge-outline">{s.habitacion || t('common.unassigned')}</span></td>
+                <td><span className="badge badge-soft badge-outline room-number">{s.habitacion || t('common.unassigned')}</span></td>
                 <td className="whitespace-nowrap">{s.fecha_entrada ? new Date(s.fecha_entrada).toLocaleDateString('es-ES') : '-'}</td>
                 <td className="whitespace-nowrap">{s.fecha_salida_prevista ? new Date(s.fecha_salida_prevista).toLocaleDateString('es-ES') : '-'}</td>
                 <td>{statusBadge(s.estado)}</td>
@@ -318,7 +318,7 @@ export default function StudentsPage() {
           <div className="text-center opacity-60 py-8">{t('students.empty')}</div>
         )}
         {students.map((s) => (
-          <div key={s.id} className="card card-sm bg-base-100 border border-base-300">
+          <div key={s.id} className="card card-sm bg-base-100 border">
             <div className="card-body p-3 gap-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 min-w-0">
@@ -340,7 +340,7 @@ export default function StudentsPage() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                 <span className="flex items-center gap-1">
                   <span className="opacity-50">{t('students.room')}:</span>
-                  <span className="badge badge-soft badge-outline badge-xs">{s.habitacion || t('common.unassigned')}</span>
+                  <span className="badge badge-soft badge-outline badge-xs room-number">{s.habitacion || t('common.unassigned')}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="opacity-50">{t('students.entry')}:</span>
@@ -403,7 +403,7 @@ export default function StudentsPage() {
             </div>
             <form onSubmit={handleSave} className="flex flex-col gap-4">
               {!editing && regItems.length > 0 && (
-                <fieldset className="border border-base-300 rounded-box p-4">
+                <fieldset className="rounded-box p-4">
                   <legend className="font-medium text-sm px-1 text-primary">{t('students.registration_checklist')}</legend>
                   <div className="flex flex-col gap-2">
                     {regItems.map((item) => (
@@ -422,7 +422,7 @@ export default function StudentsPage() {
                   </div>
                 </fieldset>
               )}
-              <fieldset className="border border-base-300 rounded-box p-4">
+              <fieldset className="rounded-box p-4">
                 <legend className="font-medium text-sm px-1 text-primary">{t('students.section_personal')}</legend>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="form-control">
@@ -450,7 +450,7 @@ export default function StudentsPage() {
                 </div>
               </fieldset>
 
-              <fieldset className="border border-base-300 rounded-box p-4">
+              <fieldset className="rounded-box p-4">
                 <legend className="font-medium text-sm px-1 text-primary">{t('students.section_housing')}</legend>
                 <div className="form-control">
                   <label className="label"><span className="label-text">{t('students.room')}</span></label>
@@ -478,7 +478,7 @@ export default function StudentsPage() {
               </fieldset>
 
               {!editing && storageItems.length > 0 && (
-                <fieldset className="border border-base-300 rounded-box p-4">
+                <fieldset className="rounded-box p-4">
                   <legend className="font-medium text-sm px-1 text-primary">{t('students.inventory_assignment')}</legend>
                   <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
                     {storageItems.reduce((acc, item) => {
@@ -507,7 +507,7 @@ export default function StudentsPage() {
                   </div>
                 </fieldset>
               )}
-              <fieldset className="border border-base-300 rounded-box p-4">
+              <fieldset className="rounded-box p-4">
                 <legend className="font-medium text-sm px-1 text-primary">{t('students.section_billing')}</legend>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="form-control">
@@ -556,7 +556,7 @@ export default function StudentsPage() {
               </div>
             </div>
 
-            <fieldset className="border border-base-300 rounded-box p-4 mb-4">
+            <fieldset className="rounded-box p-4 mb-4">
               <legend className="font-medium text-sm px-1 text-warning">{t('students.departure_checklist')}</legend>
               <div className="flex flex-col gap-2">
                 {departureItems.length === 0 && <p className="text-sm opacity-60">{t('students.no_checklist_items')}</p>}
@@ -575,7 +575,7 @@ export default function StudentsPage() {
             </fieldset>
 
             {departureInventory.length > 0 && (
-              <fieldset className="border border-base-300 rounded-box p-4 mb-4">
+              <fieldset className="rounded-box p-4 mb-4">
                 <legend className="font-medium text-sm px-1 text-primary">{t('students.departure_inventory', { room: departureStudent.habitacion })}</legend>
                 <table className="table table-sm">
                   <thead>

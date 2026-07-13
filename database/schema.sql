@@ -127,16 +127,33 @@ CREATE TABLE IF NOT EXISTS incidencias (
   FOREIGN KEY (asignado_a) REFERENCES profiles(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS horario_types (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL UNIQUE,
+  color VARCHAR(50) DEFAULT 'badge-soft',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO horario_types (nombre, color) VALUES
+  ('transporte', 'badge-info'),
+  ('residencia', 'badge-primary'),
+  ('cafeteria', 'badge-warning'),
+  ('comedor', 'badge-success'),
+  ('recepci\u00f3n', 'badge-accent'),
+  ('instalaciones', 'badge-neutral'),
+  ('otros', 'badge-soft');
+
 CREATE TABLE IF NOT EXISTS horarios (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  tipo ENUM('transporte','residencia','cafeteria','comedor','recepción','instalaciones','otros') NOT NULL,
+  tipo_id INT NOT NULL,
   titulo VARCHAR(255) NOT NULL,
   descripcion TEXT DEFAULT '',
   dia_semana VARCHAR(20) DEFAULT '',
   hora_inicio TIME NOT NULL,
   hora_fin TIME DEFAULT NULL,
   ubicacion VARCHAR(255) DEFAULT '',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (tipo_id) REFERENCES horario_types(id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS pagos (
@@ -294,6 +311,7 @@ ALTER TABLE cleaning_block_rooms ADD COLUMN IF NOT EXISTS imagen VARCHAR(500) DE
 ALTER TABLE cleaning_block_rooms ADD COLUMN IF NOT EXISTS zone_id INT DEFAULT NULL,
   ADD FOREIGN KEY IF NOT EXISTS (zone_id) REFERENCES common_zones(id) ON DELETE SET NULL;
 ALTER TABLE inventory_items MODIFY COLUMN tipo ENUM('room','zone','almacen') NOT NULL DEFAULT 'room';
+ALTER TABLE profiles MODIFY COLUMN rol ENUM('direccion','administracion','limpieza','estudiante','staff','cocina') NOT NULL DEFAULT 'estudiante';
 
 CREATE TABLE IF NOT EXISTS registration_checklist_logs (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -304,6 +322,73 @@ CREATE TABLE IF NOT EXISTS registration_checklist_logs (
   UNIQUE KEY uq_registration_item (student_id, checklist_item_id),
   FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
   FOREIGN KEY (checklist_item_id) REFERENCES registration_checklist_items(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- ALÉRGENOS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS allergens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO allergens (nombre) VALUES
+  ('Gluten'), ('Lácteos'), ('Huevos'), ('Cacahuetes'),
+  ('Frutos secos'), ('Soja'), ('Pescado'), ('Marisco'),
+  ('Sulfitos'), ('Sésamo'), ('Mostaza'), ('Apio'),
+  ('Moluscos'), ('Altramuces');
+
+-- ============================================================
+-- MENÚS — Plantillas reutilizables + asignación por día/fecha
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS menu_templates (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(255) NOT NULL,
+  descripcion TEXT DEFAULT NULL,
+  is_global BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS menu_template_sections (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  template_id INT NOT NULL,
+  nombre VARCHAR(255) NOT NULL,
+  orden INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (template_id) REFERENCES menu_templates(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS menu_template_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  section_id INT NOT NULL,
+  nombre VARCHAR(255) NOT NULL,
+  descripcion TEXT DEFAULT NULL,
+  precio DECIMAL(10,2) DEFAULT 0.00,
+  orden INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (section_id) REFERENCES menu_template_sections(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS menu_item_allergens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  menu_item_id INT NOT NULL,
+  allergen_id INT NOT NULL,
+  UNIQUE KEY uq_item_allergen (menu_item_id, allergen_id),
+  FOREIGN KEY (menu_item_id) REFERENCES menu_template_items(id) ON DELETE CASCADE,
+  FOREIGN KEY (allergen_id) REFERENCES allergens(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS menu_assignments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  template_id INT NOT NULL,
+  tipo ENUM('global','semanal','fecha') NOT NULL DEFAULT 'fecha',
+  dia_semana TINYINT DEFAULT NULL COMMENT '1=Lun..7=Dom',
+  fecha DATE DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (template_id) REFERENCES menu_templates(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ============================================================

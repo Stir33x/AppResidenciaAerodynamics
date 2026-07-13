@@ -48,7 +48,7 @@ export default function RoomsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-4xl font-bold">{t('rooms.title')}</h1>
+      <h1 className="page-title">{t('rooms.title')}</h1>
 
       <div className="card bg-base-100 border shadow-sm">
         <div className="card-body p-4">
@@ -84,7 +84,7 @@ export default function RoomsPage() {
         {sorted.map((r) => (
           <div key={r.id} className={`card shadow-sm border ${r.occupied ? 'border-error/30' : 'border-success/30'}`}>
             <div className="card-body items-center p-4 gap-2">
-              <span className="text-xl font-bold">{r.nombre}</span>
+              <span className="room-number text-xl">{r.nombre}</span>
 
               {r.occupied ? (
                 <div className="badge badge-error badge-sm gap-1">

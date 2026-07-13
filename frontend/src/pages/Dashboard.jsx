@@ -87,7 +87,7 @@ export default function Dashboard() {
           </svg>
         </div>
         <div>
-          <h1 className="text-2xl font-bold">{t('dashboard.welcome', { nombre: user?.nombre })}</h1>
+          <h1 className="page-title">{t('dashboard.welcome', { nombre: user?.nombre })}</h1>
           <p className="text-sm opacity-60">{user?.rol ? t('roles.' + user.rol) : ''}</p>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default function Dashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
                   {b.rooms?.map((r) => (
                     <div key={r.id} className={`border rounded-box p-2 text-center ${r.completada_hoy ? 'bg-success/10 border-success' : ''}`}>
-                      <span className="font-bold">{r.room_name}</span>
+                      <span className="room-number">{r.room_name}</span>
                       {r.absences?.length > 0 && (
                         <div className="text-xs mt-1">
                           {r.absences.map((a, i) => (
@@ -132,7 +132,7 @@ export default function Dashboard() {
               <h2 className="card-title text-lg">{t('dashboard.student_room')}</h2>
               {studentData ? (
                 <div className="flex items-center gap-2 flex-wrap mt-1">
-                  <span className="badge badge-lg badge-outline">{studentData.habitacion || t('common.unassigned')}</span>
+                  <span className="badge badge-lg badge-outline room-number">{studentData.habitacion || t('common.unassigned')}</span>
                   <span className={`badge ${studentData.estado === 'activo' ? 'badge-success' : studentData.estado === 'pendiente_salida' ? 'badge-warning' : 'badge-error'}`}>
                     {studentData.estado === 'activo' ? t('common.active') : studentData.estado === 'pendiente_salida' ? t('common.pending_departure') : t('common.inactive')}
                   </span>

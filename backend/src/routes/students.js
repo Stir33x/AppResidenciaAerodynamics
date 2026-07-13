@@ -93,18 +93,18 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
       startMonth.setDate(1);
       const interval = parseInt(facturar_cada) || 1;
       const amount = parseFloat(cuota_mensual);
-      const maxReceipts = 12;
+
       let endMonth;
       if (fecha_salida_prevista) {
         endMonth = new Date(fecha_salida_prevista);
         endMonth.setDate(1);
       } else {
         endMonth = new Date(startMonth);
-        endMonth.setMonth(endMonth.getMonth() + (maxReceipts - 1) * interval);
+        endMonth.setMonth(endMonth.getMonth() + 9); // 10 meses de previsión
       }
+
       let current = new Date(startMonth);
-      let count = 0;
-      while (current <= endMonth && count < maxReceipts) {
+      while (current <= endMonth) {
         const periodo = current.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
         const vencimiento = new Date(current.getFullYear(), current.getMonth() + 1, 5).toISOString().slice(0, 10);
         const [existing] = await pool.query(
@@ -118,7 +118,6 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
           );
         }
         current.setMonth(current.getMonth() + interval);
-        count++;
       }
     }
 
@@ -167,6 +166,21 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
 
     params.push(req.params.id);
     await pool.query(`UPDATE students SET ${fields.join(', ')} WHERE id = ?`, params);
+
+    // Si se estableció o cambió fecha_salida_prevista, anular pagos pendientes posteriores
+    if (fecha_salida_prevista !== undefined && fecha_salida_prevista) {
+      const limitPlus1 = new Date(fecha_salida_prevista);
+      limitPlus1.setDate(1);
+      limitPlus1.setMonth(limitPlus1.getMonth() + 1);
+      const ref = limitPlus1.toISOString().slice(0, 7);
+      await pool.query(
+        `UPDATE pagos SET estado = 'anulado'
+         WHERE student_id = ? AND estado = 'pendiente'
+           AND DATE_FORMAT(fecha_vencimiento, '%Y-%m') > ?`,
+        [req.params.id, ref]
+      );
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

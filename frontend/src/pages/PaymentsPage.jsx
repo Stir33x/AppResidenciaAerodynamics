@@ -98,7 +98,7 @@ export default function PaymentsPage() {
   }
 
   const estadoBadge = (e) => {
-    const cls = { pendiente: 'badge-soft badge-info', cobrado: 'badge-soft badge-success', vencido: 'badge-soft badge-error', anulado: 'badge-soft badge-neutral' }
+    const cls = { pendiente: 'badge-warning', cobrado: 'badge-success', vencido: 'badge-error', anulado: 'badge-neutral badge-soft' }
     return <span className={`badge ${cls[e] || ''}`}>{t(`payment_states.${e}`)}</span>
   }
 
@@ -111,7 +111,7 @@ export default function PaymentsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-4xl font-bold">{t('payments.title')}</h1>
+        <h1 className="page-title">{t('payments.title')}</h1>
         {isStaff && (
           <div className="flex gap-2">
             <button className="btn btn-primary" onClick={openCreate}>{t('payments.new')}</button>

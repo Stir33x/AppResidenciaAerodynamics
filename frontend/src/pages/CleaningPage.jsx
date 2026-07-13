@@ -44,62 +44,58 @@ export default function CleaningPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-4xl font-bold">{t('cleaning.admin_title')}</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="page-title">{t('cleaning.admin_title')}</h1>
 
-      {/* Today's checklist progress (read-only for admin) */}
-      <div className="card bg-base-100 shadow-sm border">
-        <div className="card-body">
-          <h2 className="card-title">{t('cleaning.today_section', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h2>
-          {(!todayData?.blocks || todayData.blocks.length === 0) && (
-            <div className="alert alert-soft">{t('cleaning.no_tasks')}</div>
-          )}
+      {/* Today's section — highlighted with accent border */}
+      <div className="bg-base-100 border border-base-300 border-l-2 border-l-accent/70 p-4">
+        <h2 className="section-title mb-3">{t('cleaning.today_section', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h2>
+        {(!todayData?.blocks || todayData.blocks.length === 0) && (
+          <div className="alert alert-soft text-sm">{t('cleaning.no_tasks')}</div>
+        )}
+        <div className="flex flex-col gap-3">
           {todayData?.blocks?.map((block) => (
-            <div key={block.id} className="card bg-base-100 shadow-sm border mb-3">
-              <div className="card-body">
-                <h3 className="font-semibold">{block.hora_inicio?.slice(0, 5)} — {block.hora_fin?.slice(0, 5)}</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-2">
-                  {block.rooms?.map((room) => (
-                    <ReadOnlyRoomCard key={room.id} room={room} t={t} />
-                  ))}
-                </div>
+            <div key={block.id} className="bg-base-200 rounded-box p-3">
+              <h3 className="text-sm font-semibold opacity-70 mb-2">{block.hora_inicio?.slice(0, 5)} — {block.hora_fin?.slice(0, 5)}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {block.rooms?.map((room) => (
+                  <ReadOnlyRoomCard key={room.id} room={room} t={t} />
+                ))}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Weekly schedule (view-only) */}
-      <div className="card bg-base-100 shadow-sm border">
-        <div className="card-body">
-          <h2 className="card-title mb-4">{t('cleaning.schedules_subtitle')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {DIAS.map((dia) => {
-              const delDia = blocks.filter((b) => b.dia_semana === dia)
-              const idx = DIAS.indexOf(dia)
-              return (
-                <div key={dia} className={`card shadow-sm border ${idx % 2 === 0 ? 'bg-base-100' : 'bg-base-200'}`}>
-                  <div className="card-body p-4">
-                    <h3 className="card-title text-lg mb-2">{t('days.' + dia)}</h3>
-                    {delDia.length === 0 && <p className="text-sm opacity-50">{t('cleaning.no_schedules')}</p>}
-                    {delDia.map((b) => (
-                      <div key={b.id} className="mb-2 p-2 bg-base-100 rounded-box border">
-                        <span className="text-sm font-medium">{b.hora_inicio?.slice(0, 5)} — {b.hora_fin?.slice(0, 5)}</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {b.rooms?.map((r) => (
-                            <span key={r.id} className={`badge badge-sm ${r.tipo === 'zone' ? 'badge-info' : 'badge-soft'}`}>
-                              {r.tipo === 'zone' && <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 mr-0.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>}
-                              {r.room_name}
-                            </span>
-                          ))}
-                        </div>
+      {/* Weekly schedule — flatter, no cards */}
+      <div className="bg-base-100 border border-base-300 p-4">
+        <h2 className="section-title mb-3">{t('cleaning.schedules_subtitle')}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {DIAS.map((dia) => {
+            const delDia = blocks.filter((b) => b.dia_semana === dia)
+            const idx = DIAS.indexOf(dia)
+            return (
+              <div key={dia} className={`p-3 rounded-box border border-base-300 ${idx % 2 === 0 ? 'bg-base-100' : 'bg-base-200'}`}>
+                <h3 className="text-sm font-semibold mb-2">{t('days.' + dia)}</h3>
+                {delDia.length === 0 && <p className="text-xs opacity-50">{t('cleaning.no_schedules')}</p>}
+                <div className="flex flex-col gap-2">
+                  {delDia.map((b) => (
+                    <div key={b.id} className="bg-base-100 rounded-box p-2 border border-base-300">
+                      <span className="text-xs font-medium">{b.hora_inicio?.slice(0, 5)} — {b.hora_fin?.slice(0, 5)}</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {b.rooms?.map((r) => (
+                          <span key={r.id} className={`badge badge-sm ${r.tipo === 'zone' ? 'badge-soft' : 'badge-soft'}`}>
+                            {r.tipo === 'zone' && <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 mr-0.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>}
+                            <span className="room-number">{r.room_name}</span>
+                          </span>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -114,7 +110,6 @@ function CleanerView({ todayData, toggleComplete, t }) {
   useEffect(() => {
     if (!todayData?.blocks) return
     const hoy = new Date().toISOString().slice(0, 10)
-    const initial = {}
     const promises = []
     for (const block of todayData.blocks) {
       for (const room of block.rooms) {
@@ -164,30 +159,27 @@ function CleanerView({ todayData, toggleComplete, t }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-4xl font-bold">{t('cleaning.today_title', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h1>
+    <div className="flex flex-col gap-4">
+      <h1 className="page-title">{t('cleaning.today_title', { dia: todayData?.dia ? t('days.' + todayData.dia) : '' })}</h1>
       {(!todayData?.blocks || todayData.blocks.length === 0) && (
-        <div className="alert alert-soft">{t('cleaning.no_tasks')}</div>
+        <div className="alert alert-soft text-sm">{t('cleaning.no_tasks')}</div>
       )}
       {todayData?.blocks?.map((block) => (
-        <div key={block.id} className="card bg-base-100 shadow-sm border">
-          <div className="card-body">
-            <h2 className="card-title">{block.hora_inicio?.slice(0, 5)} — {block.hora_fin?.slice(0, 5)}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-2">
-              {block.rooms?.map((room) => (
+        <div key={block.id} className="bg-base-100 border border-base-300 border-l-2 border-l-accent/70 p-4">
+          <h2 className="section-title mb-3">{block.hora_inicio?.slice(0, 5)} — {block.hora_fin?.slice(0, 5)}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {block.rooms?.map((room) => (
                 <RoomChecklistCard
                   key={room.id}
                   room={room}
-                  blockId={block.id}
                   checklistStates={checklistStates}
-                  toggleChecklistItem={toggleChecklistItem}
-                  toggleComplete={toggleComplete}
-                  saveChecklist={saveChecklist}
-                  saving={saving}
-                  t={t}
-                />
-              ))}
-            </div>
+                toggleChecklistItem={toggleChecklistItem}
+                toggleComplete={toggleComplete}
+                saveChecklist={saveChecklist}
+                saving={saving}
+                t={t}
+              />
+            ))}
           </div>
         </div>
       ))}
@@ -216,30 +208,34 @@ function ReadOnlyRoomCard({ room, t }) {
   }, [room, completionsUrl])
 
   return (
-    <div className={`border rounded-box p-3 ${room.completada_hoy ? 'bg-success/10 border-success' : ''}`}>
+    <div className={`border rounded-box p-3 ${room.completada_hoy ? 'bg-success/10 border-success' : 'bg-base-100'}`}>
       <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {room.tipo === 'zone' && (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-info"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-base-content/50 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
           )}
-          <span className="font-bold text-lg">{room.room_name}</span>
+          <span className="room-number text-sm truncate">{room.room_name}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {room.completada_hoy && room.imagen && (
-            <img src={room.imagen} alt="foto" className="w-8 h-8 object-cover rounded cursor-pointer" onClick={() => window.open(room.imagen, '_blank')} />
+            <img src={room.imagen} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => window.open(room.imagen, '_blank')} />
           )}
           {room.completada_hoy ? (
             <span className="badge badge-success badge-sm">{t('cleaning.completed')}</span>
           ) : (
-            <span className="badge badge-soft badge-sm">{t('cleaning.pending')}</span>
+            <span className="badge badge-warning badge-sm">{t('cleaning.pending')}</span>
           )}
         </div>
       </div>
 
       {items.length > 0 && (
-        <div className="flex flex-col gap-1 mt-2 pl-1 border-t pt-2 border-base-300">
+        <div className="airflow-divider" />
+      )}
+
+      {items.length > 0 && (
+        <div className="flex flex-col gap-1">
           {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-2 py-0.5 px-1">
+            <div key={item.id} className="flex items-center gap-2 py-0.5">
               <input type="checkbox" className="checkbox checkbox-xs checkbox-primary" checked={!!completions[item.id]} disabled />
               <span className={`text-sm ${completions[item.id] ? 'line-through opacity-50' : ''}`}>{item.nombre}</span>
             </div>
@@ -248,9 +244,9 @@ function ReadOnlyRoomCard({ room, t }) {
       )}
 
       {room.absences?.length > 0 && (
-        <div className="mt-2 text-xs">
+        <div className="mt-2 flex flex-wrap gap-1">
           {room.absences.map((a, i) => (
-            <span key={i} className="badge badge-soft badge-info badge-xs mr-1">
+            <span key={i} className="badge badge-soft badge-xs">
               {a.nombre}: {a.hora_inicio?.slice(0, 5)}-{a.hora_fin?.slice(0, 5)}
             </span>
           ))}
@@ -260,7 +256,7 @@ function ReadOnlyRoomCard({ room, t }) {
   )
 }
 
-function RoomChecklistCard({ room, blockId, checklistStates, toggleChecklistItem, toggleComplete, saveChecklist, saving, t }) {
+function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleComplete, saveChecklist, saving, t }) {
   const { addToast } = useToast()
   const [items, setItems] = useState([])
   const [uploadingImg, setUploadingImg] = useState(false)
@@ -280,7 +276,8 @@ function RoomChecklistCard({ room, blockId, checklistStates, toggleChecklistItem
     try {
       const fd = new FormData()
       fd.append('imagen', file)
-      const res = await fetch('/api/upload/image', { method: 'POST', headers: { Authorization: localStorage.getItem('token') }, body: fd })
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+      const res = await fetch(`${API_BASE}/upload/image`, { method: 'POST', headers: { Authorization: localStorage.getItem('token') }, body: fd })
       const data = await res.json()
       if (data.url) toggleComplete(room.id, data.url)
     } catch (err) { addToast(err.message, 'error') }
@@ -288,17 +285,17 @@ function RoomChecklistCard({ room, blockId, checklistStates, toggleChecklistItem
   }
 
   return (
-    <div className={`border rounded-box p-3 ${room.completada_hoy ? 'bg-success/10 border-success' : ''}`}>
+    <div className={`border rounded-box p-3 ${room.completada_hoy ? 'bg-success/10 border-success' : 'bg-base-100'}`}>
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {room.tipo === 'zone' && (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-info"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-base-content/50 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
           )}
-          <span className="font-bold text-lg">{room.room_name}</span>
+          <span className="room-number text-sm truncate">{room.room_name}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {room.completada_hoy && room.imagen && (
-            <img src={room.imagen} alt="foto" className="w-8 h-8 object-cover rounded cursor-pointer" onClick={() => window.open(room.imagen, '_blank')} />
+            <img src={room.imagen} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => window.open(room.imagen, '_blank')} />
           )}
           {!room.completada_hoy && (
             <label className={`btn btn-ghost btn-xs btn-square ${uploadingImg ? 'pointer-events-none' : ''}`}>
@@ -315,7 +312,11 @@ function RoomChecklistCard({ room, blockId, checklistStates, toggleChecklistItem
       </div>
 
       {items.length > 0 && (
-        <div className="flex flex-col gap-1 mt-2 pl-1 border-t pt-2 border-base-300">
+        <div className="airflow-divider" />
+      )}
+
+      {items.length > 0 && (
+        <div className="flex flex-col gap-1">
           {items.map((item) => (
             <label key={item.id} className="flex items-center gap-2 cursor-pointer py-0.5 hover:bg-base-200 rounded px-1 transition-colors">
               <input type="checkbox" className="checkbox checkbox-xs checkbox-primary" checked={!!checklistStates?.[`${room.id}_${item.id}`]} onChange={() => toggleChecklistItem?.(room.id, item.id)} />
@@ -331,9 +332,9 @@ function RoomChecklistCard({ room, blockId, checklistStates, toggleChecklistItem
       )}
 
       {room.absences?.length > 0 && (
-        <div className="mt-2 text-xs">
+        <div className="mt-2 flex flex-wrap gap-1">
           {room.absences.map((a, i) => (
-            <span key={i} className="badge badge-soft badge-info badge-xs mr-1">
+            <span key={i} className="badge badge-soft badge-xs">
               {a.nombre}: {a.hora_inicio?.slice(0, 5)}-{a.hora_fin?.slice(0, 5)}
             </span>
           ))}

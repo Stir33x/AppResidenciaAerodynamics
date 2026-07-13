@@ -27,7 +27,7 @@ router.post('/', requireRole('direccion'), async (req, res) => {
     if (!email || !password || !nombre) {
       return res.status(400).json({ error: 'Email, contraseña y nombre requeridos' });
     }
-    if (!['direccion', 'administracion', 'limpieza'].includes(rol)) {
+    if (!['direccion', 'administracion', 'limpieza', 'staff', 'cocina'].includes(rol)) {
       return res.status(400).json({ error: 'Rol no válido' });
     }
 

@@ -139,7 +139,7 @@ export default function InventoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-4xl font-bold">{t('inventory.title')}</h1>
+      <h1 className="page-title">{t('inventory.title')}</h1>
 
       {/* Catalog */}
       <div className="card bg-base-100 border shadow-sm">
@@ -206,7 +206,7 @@ export default function InventoryPage() {
                 <div className="flex flex-col gap-1 max-h-40 overflow-y-auto border rounded-box p-1">
                   {rooms.map((r) => (
                     <button key={r.id} className={`btn btn-sm btn-ghost justify-start text-left ${selectedRoom === r.nombre ? 'btn-active' : ''}`} onClick={() => selectRoom(r.nombre)}>
-                      {t('inventory.room_label', { name: r.nombre })}
+                      <span className="room-number">{r.nombre}</span>
                     </button>
                   ))}
                 </div>

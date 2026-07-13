@@ -4,8 +4,15 @@ import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
 
-const tipos = ['transporte', 'residencia', 'cafeteria', 'comedor', 'recepci\u00f3n', 'instalaciones', 'otros']
 const dias = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
+
+function TipoBadge({ nombre, color }) {
+  return (
+    <span className={`text-xs font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${color || 'badge-soft'} inline-block`}>
+      {nombre}
+    </span>
+  )
+}
 
 export default function SchedulesPage() {
   const { t } = useTranslation()
@@ -13,13 +20,16 @@ export default function SchedulesPage() {
   const { addToast, confirm } = useToast()
   const isStaff = user?.rol !== 'estudiante'
   const [horarios, setHorarios] = useState([])
+  const [tipos, setTipos] = useState([])
   const [filtroTipo, setFiltroTipo] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({
-    tipo: 'transporte', titulo: '', descripcion: '', dia_semana: '',
+    tipo_id: '', titulo: '', descripcion: '', dia_semana: '',
     hora_inicio: '', hora_fin: '', ubicacion: '',
   })
+
+  useEffect(() => { fetchApi('/horario-types').then(setTipos).catch(() => {}) }, [])
 
   const load = async () => {
     const qs = filtroTipo ? `?tipo=${filtroTipo}` : ''
@@ -33,14 +43,15 @@ export default function SchedulesPage() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ tipo: 'transporte', titulo: '', descripcion: '', dia_semana: 'Lunes', hora_inicio: '08:00', hora_fin: '', ubicacion: '' })
+    const firstId = tipos[0]?.id || ''
+    setForm({ tipo_id: firstId, titulo: '', descripcion: '', dia_semana: 'Lunes', hora_inicio: '08:00', hora_fin: '', ubicacion: '' })
     setShowModal(true)
   }
 
   const openEdit = (h) => {
     setEditing(h)
     setForm({
-      tipo: h.tipo,
+      tipo_id: h.tipo_id,
       titulo: h.titulo,
       descripcion: h.descripcion || '',
       dia_semana: h.dia_semana || '',
@@ -55,7 +66,7 @@ export default function SchedulesPage() {
     e.preventDefault()
     try {
       const body = {
-        tipo: form.tipo,
+        tipo_id: form.tipo_id,
         titulo: form.titulo,
         descripcion: form.descripcion,
         dia_semana: form.dia_semana,
@@ -98,7 +109,7 @@ export default function SchedulesPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-4xl font-bold">{t('schedules.title')}</h1>
+        <h1 className="page-title">{t('schedules.title')}</h1>
         {isStaff && <button className="btn btn-primary" onClick={openCreate}>{t('schedules.new')}</button>}
       </div>
 
@@ -106,7 +117,7 @@ export default function SchedulesPage() {
         <span className="text-sm opacity-70">{t('schedules.filter')}</span>
         <select className="select select-bordered select-sm" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
           <option value="">{t('schedules.all')}</option>
-          {tipos.map((tp) => <option key={tp} value={tp}>{t('schedule_types.' + tp)}</option>)}
+          {tipos.map((tp) => <option key={tp.id} value={tp.nombre}>{tp.nombre}</option>)}
         </select>
       </div>
 
@@ -123,13 +134,13 @@ export default function SchedulesPage() {
                   <p className="text-xs opacity-40">{t('schedules.no_schedules')}</p>
                 ) : (
                   <div className="flex flex-col gap-3">
-                    {tipos.filter((tp) => cats[tp]?.length > 0).map((tp) => (
-                      <div key={tp}>
-                        <h3 className="text-xs font-semibold opacity-60 uppercase tracking-wider mb-1">
-                          {t('schedule_types.' + tp)}
+                    {tipos.filter((tp) => cats[tp.nombre]?.length > 0).map((tp) => (
+                      <div key={tp.id}>
+                        <h3 className="mb-1">
+                          <TipoBadge nombre={tp.nombre} color={tp.color} />
                         </h3>
                         <div className="flex flex-col gap-1.5">
-                          {cats[tp].map((h) => (
+                          {cats[tp.nombre].map((h) => (
                             <div key={h.id} className="bg-base-200 rounded-box p-2">
                               <div className="flex items-center justify-between">
                                 <div>
@@ -184,8 +195,8 @@ export default function SchedulesPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="form-control">
                   <label className="label"><span className="label-text">{t('schedules.type')}</span></label>
-                  <select className="select select-bordered" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
-                    {tipos.map((tp) => <option key={tp} value={tp}>{t('schedule_types.' + tp)}</option>)}
+                  <select className="select select-bordered" value={form.tipo_id} onChange={(e) => setForm({ ...form, tipo_id: e.target.value })}>
+                    {tipos.map((tp) => <option key={tp.id} value={tp.id}>{tp.nombre}</option>)}
                   </select>
                 </div>
                 <div className="form-control">

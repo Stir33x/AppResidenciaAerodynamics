@@ -10,10 +10,10 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
   try {
     const { tipo } = req.query;
-    let sql = 'SELECT * FROM horarios';
+    let sql = 'SELECT h.*, ht.nombre AS tipo, ht.color AS tipo_color FROM horarios h JOIN horario_types ht ON ht.id = h.tipo_id';
     const params = [];
-    if (tipo) { sql += ' WHERE tipo = ?'; params.push(tipo); }
-    sql += ' ORDER BY FIELD(dia_semana, "Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"), hora_inicio';
+    if (tipo) { sql += ' WHERE ht.nombre = ?'; params.push(tipo); }
+    sql += ' ORDER BY FIELD(h.dia_semana, "Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"), h.hora_inicio';
     const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
@@ -25,13 +25,13 @@ router.get('/', async (req, res) => {
 // POST /api/horarios (staff only)
 router.post('/', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { tipo, titulo, descripcion, dia_semana, hora_inicio, hora_fin, ubicacion } = req.body;
-    if (!tipo || !titulo || !hora_inicio) {
+    const { tipo_id, titulo, descripcion, dia_semana, hora_inicio, hora_fin, ubicacion } = req.body;
+    if (!tipo_id || !titulo || !hora_inicio) {
       return res.status(400).json({ error: 'Tipo, título y hora requeridos' });
     }
     const [result] = await pool.query(
-      'INSERT INTO horarios (tipo, titulo, descripcion, dia_semana, hora_inicio, hora_fin, ubicacion) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [tipo, titulo, descripcion || '', dia_semana || '', hora_inicio, hora_fin || null, ubicacion || '']
+      'INSERT INTO horarios (tipo_id, titulo, descripcion, dia_semana, hora_inicio, hora_fin, ubicacion) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [tipo_id, titulo, descripcion || '', dia_semana || '', hora_inicio, hora_fin || null, ubicacion || '']
     );
     res.status(201).json({ id: result.insertId });
   } catch (err) {
@@ -43,10 +43,10 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
 // PUT /api/horarios/:id
 router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { tipo, titulo, descripcion, dia_semana, hora_inicio, hora_fin, ubicacion } = req.body;
+    const { tipo_id, titulo, descripcion, dia_semana, hora_inicio, hora_fin, ubicacion } = req.body;
     await pool.query(
-      'UPDATE horarios SET tipo = ?, titulo = ?, descripcion = ?, dia_semana = ?, hora_inicio = ?, hora_fin = ?, ubicacion = ? WHERE id = ?',
-      [tipo, titulo, descripcion || '', dia_semana || '', hora_inicio, hora_fin || null, ubicacion || '', req.params.id]
+      'UPDATE horarios SET tipo_id = ?, titulo = ?, descripcion = ?, dia_semana = ?, hora_inicio = ?, hora_fin = ?, ubicacion = ? WHERE id = ?',
+      [tipo_id, titulo, descripcion || '', dia_semana || '', hora_inicio, hora_fin || null, ubicacion || '', req.params.id]
     );
     res.json({ ok: true });
   } catch (err) {

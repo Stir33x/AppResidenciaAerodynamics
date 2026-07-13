@@ -8,6 +8,7 @@ import StudentsPage from './pages/StudentsPage'
 import CleaningPage from './pages/CleaningPage'
 import IncidentsPage from './pages/IncidentsPage'
 import SchedulesPage from './pages/SchedulesPage'
+import ScheduleViewPage from './pages/ScheduleViewPage'
 import PaymentsPage from './pages/PaymentsPage'
 import RoomsPage from './pages/RoomsPage'
 import DocumentsPage from './pages/DocumentsPage'
@@ -15,6 +16,8 @@ import UsersPage from './pages/UsersPage'
 import AdminChecklistPage from './pages/AdminChecklistPage'
 import InventoryPage from './pages/InventoryPage'
 import ConfigurationPage from './pages/ConfigurationPage'
+import MenuPage from './pages/MenuPage'
+import MenuViewPage from './pages/MenuViewPage'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -34,6 +37,7 @@ export default function App() {
           <Route path="/limpieza" element={<ProtectedRoute><CleaningPage /></ProtectedRoute>} />
           <Route path="/incidencias" element={<ProtectedRoute><IncidentsPage /></ProtectedRoute>} />
           <Route path="/horarios" element={<ProtectedRoute><SchedulesPage /></ProtectedRoute>} />
+          <Route path="/horario" element={<ProtectedRoute><ScheduleViewPage /></ProtectedRoute>} />
           <Route path="/pagos" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
           <Route path="/habitaciones" element={<ProtectedRoute><RoomsPage /></ProtectedRoute>} />
           <Route path="/documentos" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
@@ -41,6 +45,8 @@ export default function App() {
           <Route path="/usuarios" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
           <Route path="/configuracion" element={<ProtectedRoute><ConfigurationPage /></ProtectedRoute>} />
           <Route path="/checklist-alta" element={<ProtectedRoute><AdminChecklistPage /></ProtectedRoute>} />
+          <Route path="/menu" element={<ProtectedRoute><MenuPage /></ProtectedRoute>} />
+          <Route path="/menu-view" element={<ProtectedRoute><MenuViewPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </ToastProvider>

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useToast } from '../components/Toast'
 
-const tipos = ['transporte', 'residencia', 'cafeteria', 'comedor', 'recepci\u00f3n', 'instalaciones', 'otros']
 const dias = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
 
 function ChecklistSection({ titleKey, items, loading, newName, setNewName, newObligatorio, setNewObligatorio, showObligatorio, editingId, setEditingId, editName, setEditName, editObligatorio, setEditObligatorio, onAdd, onStartEdit, onSaveEdit, onDelete, t }) {
@@ -163,12 +162,34 @@ export default function ConfigurationPage() {
     catch (err) { addToast(err.message, 'error') }
   }
 
+  /* --- Horario Types --- */
+  const [horarioTypes, setHorarioTypes] = useState([])
+  const [newHTNombre, setNewHTNombre] = useState('')
+  const [newHTColor, setNewHTColor] = useState('badge-soft')
+
+  const loadHT = () => fetchApi('/horario-types').then(setHorarioTypes).catch(() => {})
+
+  const addHT = async (e) => {
+    e.preventDefault()
+    if (!newHTNombre.trim()) return
+    try {
+      await fetchApi('/horario-types', { method: 'POST', body: JSON.stringify({ nombre: newHTNombre.trim(), color: newHTColor }) })
+      setNewHTNombre(''); setNewHTColor('badge-soft')
+      loadHT(); addToast(t('common.saved'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
+  }
+  const deleteHT = async (id, name) => {
+    if (!await confirm(`\u00bfEliminar la categor\u00eda "${name}"?`)) return
+    try { await fetchApi(`/horario-types/${id}`, { method: 'DELETE' }); loadHT(); addToast(t('common.deleted'), 'success') }
+    catch (err) { addToast(err.message, 'error') }
+  }
+
   /* --- Schedules --- */
   const [horarios, setHorarios] = useState([])
   const [filtroTipo, setFiltroTipo] = useState('')
   const [showSchedModal, setShowSchedModal] = useState(false)
   const [editingSched, setEditingSched] = useState(null)
-  const [schedForm, setSchedForm] = useState({ tipo: 'transporte', titulo: '', descripcion: '', dia_semana: '', hora_inicio: '', hora_fin: '', ubicacion: '' })
+  const [schedForm, setSchedForm] = useState({ tipo_id: '', titulo: '', descripcion: '', dia_semana: '', hora_inicio: '', hora_fin: '', ubicacion: '' })
 
   const loadSched = async () => {
     const qs = filtroTipo ? `?tipo=${filtroTipo}` : ''
@@ -176,15 +197,17 @@ export default function ConfigurationPage() {
   }
   useEffect(() => { loadSched() }, [filtroTipo])
 
+  useEffect(() => { loadHT() }, [])
+
   const openCreateSched = () => {
     setEditingSched(null)
-    setSchedForm({ tipo: 'transporte', titulo: '', descripcion: '', dia_semana: 'Lunes', hora_inicio: '08:00', hora_fin: '', ubicacion: '' })
+    setSchedForm({ tipo_id: horarioTypes[0]?.id || '', titulo: '', descripcion: '', dia_semana: 'Lunes', hora_inicio: '08:00', hora_fin: '', ubicacion: '' })
     setShowSchedModal(true)
   }
   const openEditSched = (h) => {
     setEditingSched(h)
     setSchedForm({
-      tipo: h.tipo, titulo: h.titulo, descripcion: h.descripcion || '',
+      tipo_id: h.tipo_id, titulo: h.titulo, descripcion: h.descripcion || '',
       dia_semana: h.dia_semana || '', hora_inicio: h.hora_inicio?.slice(0, 5) || '',
       hora_fin: h.hora_fin?.slice(0, 5) || '', ubicacion: h.ubicacion || '',
     })
@@ -194,7 +217,7 @@ export default function ConfigurationPage() {
     e.preventDefault()
     try {
       const body = {
-        tipo: schedForm.tipo, titulo: schedForm.titulo, descripcion: schedForm.descripcion,
+        tipo_id: schedForm.tipo_id, titulo: schedForm.titulo, descripcion: schedForm.descripcion,
         dia_semana: schedForm.dia_semana, hora_inicio: schedForm.hora_inicio,
         hora_fin: schedForm.hora_fin || null, ubicacion: schedForm.ubicacion,
       }
@@ -339,7 +362,7 @@ export default function ConfigurationPage() {
   /* --- Render --- */
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-4xl font-bold">{t('configuration.title')}</h1>
+      <h1 className="page-title">{t('configuration.title')}</h1>
 
       <div className="tabs tabs-bordered">
         <button className={`tab ${tab === 'checklists' ? 'tab-active' : ''}`} onClick={() => setTab('checklists')}>
@@ -353,6 +376,10 @@ export default function ConfigurationPage() {
         <button className={`tab ${tab === 'schedules' ? 'tab-active' : ''}`} onClick={() => setTab('schedules')}>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           {t('configuration.schedules')}
+        </button>
+        <button className={`tab ${tab === 'schedule_types' ? 'tab-active' : ''}`} onClick={() => setTab('schedule_types')}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
+          Categor\u00edas
         </button>
         <button className={`tab ${tab === 'cleaning' ? 'tab-active' : ''}`} onClick={() => setTab('cleaning')}>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
@@ -432,7 +459,7 @@ export default function ConfigurationPage() {
               <span className="text-sm opacity-70">{t('schedules.filter')}</span>
               <select className="select select-bordered select-sm" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
                 <option value="">{t('schedules.all')}</option>
-                {tipos.map((tp) => <option key={tp} value={tp}>{t('schedule_types.' + tp)}</option>)}
+                {horarioTypes.map((tp) => <option key={tp.id} value={tp.nombre}>{tp.nombre}</option>)}
               </select>
             </div>
             <button className="btn btn-primary" onClick={openCreateSched}>{t('schedules.new')}</button>
@@ -452,11 +479,13 @@ export default function ConfigurationPage() {
                   <div className="card-body p-4">
                     <h2 className="card-title text-base">{t('days.' + dia)}</h2>
                     <div className="flex flex-col gap-3">
-                      {tipos.filter((tp) => grupos[tp]?.length > 0).map((tp) => (
-                        <div key={tp}>
-                          <h3 className="text-xs font-semibold opacity-60 uppercase tracking-wider mb-1">{t('schedule_types.' + tp)}</h3>
+                      {horarioTypes.filter((tp) => grupos[tp.nombre]?.length > 0).map((tp) => (
+                        <div key={tp.id}>
+                          <h3 className="mb-1">
+                            <span className={`text-xs font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ${tp.color || 'badge-soft'} inline-block`}>{tp.nombre}</span>
+                          </h3>
                           <div className="flex flex-col gap-1.5">
-                            {grupos[tp].map((h) => (
+                            {grupos[tp.nombre].map((h) => (
                               <div key={h.id} className="bg-base-200 rounded-box p-2">
                                 <div className="flex items-center justify-between">
                                   <div>
@@ -500,8 +529,8 @@ export default function ConfigurationPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="form-control">
                       <label className="label"><span className="label-text">{t('schedules.type')}</span></label>
-                      <select className="select select-bordered" value={schedForm.tipo} onChange={(e) => setSchedForm({ ...schedForm, tipo: e.target.value })}>
-                        {tipos.map((tp) => <option key={tp} value={tp}>{t('schedule_types.' + tp)}</option>)}
+                      <select className="select select-bordered" value={schedForm.tipo_id} onChange={(e) => setSchedForm({ ...schedForm, tipo_id: e.target.value })}>
+                        {horarioTypes.map((tp) => <option key={tp.id} value={tp.id}>{tp.nombre}</option>)}
                       </select>
                     </div>
                     <div className="form-control">
@@ -588,6 +617,47 @@ export default function ConfigurationPage() {
         </div>
       )}
 
+      {/* --- Schedule Types Tab --- */}
+      {tab === 'schedule_types' && (
+        <div className="card bg-base-100 border shadow-sm">
+          <div className="card-body">
+            <h3 className="font-medium mb-2">Categor\u00edas de horarios</h3>
+            <form onSubmit={addHT} className="flex flex-col gap-3 mb-4">
+              <input className="input input-bordered" placeholder="Nombre de la categor\u00eda" value={newHTNombre} onChange={(e) => setNewHTNombre(e.target.value)} required />
+              <div className="flex gap-2 items-end">
+                <div className="form-control flex-1">
+                  <label className="label py-1"><span className="label-text">Color</span></label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { value: 'badge-soft', bg: 'bg-base-300' },
+                      { value: 'badge-primary', bg: 'bg-primary' },
+                      { value: 'badge-info', bg: 'bg-info' },
+                      { value: 'badge-success', bg: 'bg-success' },
+                      { value: 'badge-warning', bg: 'bg-warning' },
+                      { value: 'badge-error', bg: 'bg-error' },
+                      { value: 'badge-neutral', bg: 'bg-neutral' },
+                      { value: 'badge-outline', bg: 'bg-base-100 border border-base-300' },
+                    ].map((c) => (
+                      <button key={c.value} type="button" className={`w-7 h-7 rounded-full ${c.bg} ${newHTColor === c.value ? 'ring-2 ring-offset-2 ring-primary' : ''}`} onClick={() => setNewHTColor(c.value)} />
+                    ))}
+                  </div>
+                </div>
+                <button type="submit" className="btn btn-primary">{t('common.add')}</button>
+              </div>
+            </form>
+            <div className="flex flex-col gap-1">
+              {horarioTypes.map((tp) => (
+                <div key={tp.id} className="flex items-center justify-between p-2 bg-base-200 rounded-box">
+                  <span className={`badge ${tp.color || 'badge-soft'}`}>{tp.nombre}</span>
+                  <button className="btn btn-xs btn-ghost text-error" onClick={() => deleteHT(tp.id, tp.nombre)}>{t('common.delete')}</button>
+                </div>
+              ))}
+              {horarioTypes.length === 0 && <p className="text-sm opacity-60 text-center py-4">No hay categor\u00edas</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Cleaning Tab --- */}
       {tab === 'cleaning' && (
         <div className="flex flex-col gap-6">
@@ -624,9 +694,9 @@ export default function ConfigurationPage() {
                             </div>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {b.rooms?.map((r) => (
-                                <span key={r.id} className={`badge badge-sm ${r.tipo === 'zone' ? 'badge-info' : 'badge-soft'}`}>
+                                <span key={r.id} className={`badge badge-sm ${r.tipo === 'zone' ? 'badge-soft' : 'badge-soft'}`}>
                                   {r.tipo === 'zone' && <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3 mr-0.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>}
-                                  {r.room_name}
+                                  <span className="room-number">{r.room_name}</span>
                                 </span>
                               ))}
                             </div>
@@ -684,7 +754,7 @@ export default function ConfigurationPage() {
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto border border-base-300 rounded-box p-3 bg-base-200/50">
                           {zones.map((z) => (
                             <label key={z.id} className="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-base-200 transition-colors">
-                              <input type="checkbox" className="checkbox checkbox-xs checkbox-info" checked={cleanBlockForm.selectedZones.includes(z.id)} onChange={() => setCleanBlockForm({ ...cleanBlockForm, selectedZones: toggleItem(cleanBlockForm.selectedZones, z.id) })} />
+                              <input type="checkbox" className="checkbox checkbox-xs checkbox-primary" checked={cleanBlockForm.selectedZones.includes(z.id)} onChange={() => setCleanBlockForm({ ...cleanBlockForm, selectedZones: toggleItem(cleanBlockForm.selectedZones, z.id) })} />
                               <span className="text-sm">{z.nombre}</span>
                             </label>
                           ))}
@@ -710,7 +780,7 @@ export default function ConfigurationPage() {
                   {t('cleaning.room_checklist')}
                 </button>
                 {zones.map((z) => (
-                  <button key={z.id} className={`btn btn-sm ${cleanChecklistZone?.id === z.id ? 'btn-info' : 'btn-soft'}`} onClick={() => { setCleanChecklistZone(z); loadCleanChecklist('zone', z.id) }}>
+                  <button key={z.id} className={`btn btn-sm ${cleanChecklistZone?.id === z.id ? 'btn-primary' : 'btn-soft'}`} onClick={() => { setCleanChecklistZone(z); loadCleanChecklist('zone', z.id) }}>
                     {z.nombre}
                   </button>
                 ))}

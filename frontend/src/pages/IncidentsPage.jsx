@@ -101,7 +101,7 @@ export default function IncidentsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-4xl font-bold">{t('incidents.title')}</h1>
+        <h1 className="page-title">{t('incidents.title')}</h1>
         <div className="flex gap-2">
           <button className="btn btn-primary" onClick={openCreate}>{t('incidents.new')}</button>
         </div>
@@ -227,7 +227,8 @@ export default function IncidentsPage() {
                       try {
                         const fd = new FormData()
                         fd.append('imagen', file)
-                        const res = await fetch('/api/upload/image', { method: 'POST', headers: { Authorization: localStorage.getItem('token') }, body: fd })
+                        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+                        const res = await fetch(`${API_BASE}/upload/image`, { method: 'POST', headers: { Authorization: localStorage.getItem('token') }, body: fd })
                         const data = await res.json()
                         if (data.url) setForm({ ...form, imagen: data.url })
                       } catch (err) { addToast(err.message, 'error') }

@@ -14,10 +14,14 @@ const commonZonesRoutes = require('./routes/common-zones');
 const documentTypesRoutes = require('./routes/document-types');
 const usersRoutes = require('./routes/users');
 const horariosRoutes = require('./routes/horarios');
+const horarioTypesRoutes = require('./routes/horario-types');
 const inventoryRoutes = require('./routes/inventory');
 const departureChecklistRoutes = require('./routes/departure-checklist');
 const registrationChecklistRoutes = require('./routes/registration-checklist');
 const uploadRoutes = require('./routes/upload');
+const menuRoutes = require('./routes/menu');
+const cron = require('node-cron');
+const cronJobs = require('./cron');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,10 +44,12 @@ app.use('/api/common-zones', commonZonesRoutes);
 app.use('/api/document-types', documentTypesRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/horarios', horariosRoutes);
+app.use('/api/horario-types', horarioTypesRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/departure-checklist', departureChecklistRoutes);
 app.use('/api/registration-checklist', registrationChecklistRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/menu', menuRoutes);
 
 app.get('/api/stats', passport.authenticate('jwt', { session: false }), async (req, res) => {
   try {
@@ -75,6 +81,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Error interno del servidor' });
 });
 
+// Cron diario a las 2:00 AM
+cron.schedule('0 2 * * *', () => { cronJobs.run(); });
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
+  cronJobs.run(); // ejecutar al arrancar
 });
