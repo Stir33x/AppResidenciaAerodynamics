@@ -52,7 +52,8 @@ export default function DocumentsPage() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('tipo', uploadTipo)
-      await fetch(`http://localhost:3000/api/students/${selected.id}/documentos`, {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+      await fetch(`${API_BASE}/students/${selected.id}/documentos`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -80,7 +81,8 @@ export default function DocumentsPage() {
   const viewDocument = async (doc) => {
     const token = localStorage.getItem('token')
     try {
-      const res = await fetch(`http://localhost:3000/api/students/${selected.id}/documentos/${doc.id}/download`, {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+      const res = await fetch(`${API_BASE}/students/${selected.id}/documentos/${doc.id}/download`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (!res.ok) throw new Error(t('documents.download_error'))
@@ -350,7 +352,8 @@ function StudentDocumentsView({ email, tipoBadge }) {
                     onClick={async () => {
                       const token = localStorage.getItem('token')
                       try {
-                        const res = await fetch(`http://localhost:3000/api/students/${myStudent.id}/documentos/${doc.id}/download`, {
+                        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+                        const res = await fetch(`${API_BASE}/students/${myStudent.id}/documentos/${doc.id}/download`, {
                           headers: { Authorization: `Bearer ${token}` }
                         })
                         if (!res.ok) throw new Error()

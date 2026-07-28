@@ -28,12 +28,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 200 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
+    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (allowed.includes(ext)) return cb(null, true);
-    cb(new Error('Tipo de archivo no permitido'));
+    if (!allowed.includes(ext)) return cb(new Error('Tipo de archivo no permitido'));
+    if (!allowedMimes.includes(file.mimetype)) return cb(new Error('Tipo MIME no permitido'));
+    cb(null, true);
   },
 });
 

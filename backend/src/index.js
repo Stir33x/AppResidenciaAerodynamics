@@ -1,7 +1,17 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const multer = require('multer');
 const path = require('path');
 require('dotenv').config();
+
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET no está definido en .env');
+  process.exit(1);
+}
+
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',');
 
 const passport = require('./passport');
 const authRoutes = require('./routes/auth');
@@ -26,13 +36,36 @@ const cronJobs = require('./cron');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error('No permitido por CORS'));
+  },
+  credentials: true,
+}));
+app.use(helmet());
+app.use(express.json({ limit: '1mb' }));
 app.use(passport.initialize());
 
-// Archivos subidos (imágenes públicas, documentos requieren autenticación)
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas peticiones, inténtalo más tarde' },
+});
+app.use('/api', generalLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos, inténtalo más tarde' },
+});
+
+// Imágenes subidas — solo accesibles vía API autenticado
 app.use('/uploads/images', express.static(path.resolve(__dirname, '..', 'uploads', 'images')));
-app.use('/uploads', passport.authenticate('jwt', { session: false }), express.static(path.resolve(__dirname, '..', 'uploads')));
 
 app.use('/api', authRoutes);
 app.use('/api/students', studentsRoutes);
@@ -51,7 +84,9 @@ app.use('/api/registration-checklist', registrationChecklistRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/menu', menuRoutes);
 
-app.get('/api/stats', passport.authenticate('jwt', { session: false }), async (req, res) => {
+const { authMiddleware, requireRole } = require('./middleware/auth');
+
+app.get('/api/stats', passport.authenticate('jwt', { session: false }), requireRole('direccion', 'administracion'), async (req, res) => {
   try {
     const pool = require('./db');
     const [students] = await pool.query("SELECT COUNT(*) AS count FROM students WHERE estado IN ('activo','pendiente_salida')");
@@ -77,6 +112,10 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Archivo demasiado grande' });
+    return res.status(400).json({ error: err.message });
+  }
   console.error(err.stack);
   res.status(500).json({ error: 'Error interno del servidor' });
 });

@@ -75,7 +75,7 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
       if (overlap.length > 0) return res.status(400).json({ error: 'La habitación tiene alumno asignado en esas fechas' });
     }
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
     const [profileResult] = await pool.query(
       'INSERT INTO profiles (email, password_hash, nombre, apellidos, telefono, rol) VALUES (?, ?, ?, ?, ?, ?)',
       [email, hash, nombre, apellidos || '', telefono || '', 'estudiante']
@@ -136,6 +136,13 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
   try {
     const { habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, acceso_habitacion, estado, cuota_mensual, facturar_cada } = req.body;
 
+    if (estado !== undefined && !['activo', 'baja', 'pendiente_salida'].includes(estado)) {
+      return res.status(400).json({ error: 'Estado no válido' });
+    }
+    if (acceso_habitacion !== undefined && !['permitido', 'restringido', 'bloqueado'].includes(acceso_habitacion)) {
+      return res.status(400).json({ error: 'Acceso no válido' });
+    }
+
     // Validar solapamiento si cambia habitación con fechas
     if (habitacion) {
       const newStart = fecha_entrada || '1970-01-01';
@@ -189,7 +196,7 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
 });
 
 // POST /api/students/:id/contrato
-router.post('/:id/contrato', upload.single('file'), async (req, res) => {
+router.post('/:id/contrato', requireRole('direccion', 'administracion'), upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
 
@@ -210,8 +217,33 @@ router.post('/:id/contrato', upload.single('file'), async (req, res) => {
   }
 });
 
+// GET /api/students/:id/contrato/download
+router.get('/:id/contrato/download', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
+  try {
+    const [students] = await pool.query('SELECT contrato_url FROM students WHERE id = ?', [req.params.id]);
+    if (students.length === 0 || !students[0].contrato_url) return res.status(404).json({ error: 'Contrato no encontrado' });
+
+    if (req.user.rol === 'estudiante') {
+      const [own] = await pool.query('SELECT id FROM students WHERE profile_id = ?', [req.user.id]);
+      if (own.length === 0 || own[0].id !== parseInt(req.params.id)) {
+        return res.status(403).json({ error: 'Acceso no autorizado' });
+      }
+    }
+
+    const filePath = path.resolve(__dirname, '..', '..', students[0].contrato_url.replace(/^\//, ''));
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="contrato.pdf"');
+    res.sendFile(filePath);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 // POST /api/students/:id/notificar-salida
-router.post('/:id/notificar-salida', async (req, res) => {
+router.post('/:id/notificar-salida', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
     const { fecha_salida } = req.body;
     if (!fecha_salida) return res.status(400).json({ error: 'Fecha de salida requerida' });
@@ -236,17 +268,15 @@ router.post('/:id/notificar-salida', async (req, res) => {
 // PUT /api/students/:id/marcar-salida (staff marks student as departed)
 router.put('/:id/marcar-salida', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const [students] = await pool.query('SELECT id, profile_id, estado FROM students WHERE id = ?', [req.params.id]);
+    const [students] = await pool.query('SELECT id, estado, fecha_salida_prevista FROM students WHERE id = ?', [req.params.id]);
     if (students.length === 0) return res.status(404).json({ error: 'Alumno no encontrado' });
     if (students[0].estado === 'baja') return res.status(400).json({ error: 'El alumno ya está dado de baja' });
 
-    const { profile_id } = students[0];
-
-    // Keep incidents but disassociate from this profile
-    await pool.query('UPDATE incidencias SET reportado_por = NULL WHERE reportado_por = ?', [profile_id]);
-
-    // Delete profile → cascades to student → documents, payments, absences, departure/registration logs
-    await pool.query('DELETE FROM profiles WHERE id = ?', [profile_id]);
+    const fecha_salida_real = new Date().toISOString().slice(0, 10);
+    await pool.query(
+      "UPDATE students SET estado = 'baja', fecha_salida_real = COALESCE(fecha_salida_real, ?) WHERE id = ?",
+      [fecha_salida_real, req.params.id]
+    );
 
     res.json({ ok: true });
   } catch (err) {
@@ -259,6 +289,9 @@ router.put('/:id/marcar-salida', requireRole('direccion', 'administracion'), asy
 router.put('/:id/acceso', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
     const { acceso } = req.body;
+    if (!['permitido', 'restringido', 'bloqueado'].includes(acceso)) {
+      return res.status(400).json({ error: 'Acceso no válido' });
+    }
     await pool.query('UPDATE students SET acceso_habitacion = ? WHERE id = ?', [acceso, req.params.id]);
     res.json({ ok: true });
   } catch (err) {
@@ -270,6 +303,13 @@ router.put('/:id/acceso', requireRole('direccion', 'administracion'), async (req
 // GET /api/students/:id/documentos
 router.get('/:id/documentos', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
   try {
+    if (req.user.rol === 'estudiante') {
+      const [own] = await pool.query('SELECT id FROM students WHERE profile_id = ?', [req.user.id]);
+      if (own.length === 0 || own[0].id !== parseInt(req.params.id)) {
+        return res.status(403).json({ error: 'Acceso no autorizado' });
+      }
+    }
+
     const [rows] = await pool.query(
       `SELECT d.*, p.nombre AS subido_por_nombre
        FROM documents d
@@ -338,7 +378,8 @@ router.get('/:id/documentos/:docId/download', requireRole('direccion', 'administ
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
 
     res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${doc.nombre_original}"`);
+    const safeName = (doc.nombre_original || 'documento').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 100);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
     res.sendFile(filePath);
   } catch (err) {
     console.error(err);

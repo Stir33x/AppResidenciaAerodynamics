@@ -95,7 +95,7 @@ router.get('/forecast', requireRole('direccion', 'administracion'), async (req, 
 });
 
 // GET /api/pagos/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT p.*, pr.nombre, pr.apellidos, s.habitacion
@@ -105,6 +105,14 @@ router.get('/:id', async (req, res) => {
       WHERE p.id = ?
     `, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Pago no encontrado' });
+
+    if (req.user.rol === 'estudiante') {
+      const [own] = await pool.query('SELECT id FROM students WHERE profile_id = ?', [req.user.id]);
+      if (own.length === 0 || own[0].id !== rows[0].student_id) {
+        return res.status(403).json({ error: 'Acceso no autorizado' });
+      }
+    }
+
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -136,6 +144,10 @@ router.post('/', requireRole('direccion'), async (req, res) => {
 router.put('/:id', requireRole('direccion'), async (req, res) => {
   try {
     const { tipo, importe, descripcion, fecha_vencimiento, fecha_cobro, estado, referencia_mandato } = req.body;
+
+    if (estado !== undefined && !['pendiente', 'cobrado', 'vencido', 'anulado'].includes(estado)) {
+      return res.status(400).json({ error: 'Estado no válido' });
+    }
 
     await pool.query(`
       UPDATE pagos SET
@@ -173,6 +185,9 @@ router.post('/generar', requireRole('direccion'), async (req, res) => {
     const { student_id, cada_meses, num_pagos, importe } = req.body;
     if (!student_id || !cada_meses || !num_pagos || !importe) {
       return res.status(400).json({ error: 'student_id, cada_meses, num_pagos e importe requeridos' });
+    }
+    if (parseInt(num_pagos) > 24) {
+      return res.status(400).json({ error: 'No se pueden generar más de 24 pagos de una vez' });
     }
     const created = [];
     const now = new Date();

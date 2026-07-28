@@ -362,6 +362,11 @@ router.get('/effective-range', async (req, res) => {
     const to = req.query.to || from;
     const start = new Date(from);
     const end = new Date(to);
+
+    const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    if (diffDays > 31) {
+      return res.status(400).json({ error: 'El rango no puede superar 31 días' });
+    }
     const cache = {};
 
     const results = [];

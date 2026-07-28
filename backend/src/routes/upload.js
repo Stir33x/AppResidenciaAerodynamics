@@ -20,7 +20,15 @@ router.post('/image', uploadImage.single('imagen'), (req, res) => {
 
 router.get('/image/:filename', async (req, res) => {
   try {
-    const filePath = path.resolve(__dirname, '..', '..', 'uploads', 'images', req.params.filename);
+    const filename = path.basename(req.params.filename);
+    if (filename !== req.params.filename || filename.includes('..')) {
+      return res.status(400).json({ error: 'Nombre de archivo no válido' });
+    }
+    const imagesDir = path.resolve(__dirname, '..', '..', 'uploads', 'images');
+    const filePath = path.join(imagesDir, filename);
+    if (filePath !== path.resolve(imagesDir, filename)) {
+      return res.status(400).json({ error: 'Ruta no válida' });
+    }
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'No encontrado' });
     res.sendFile(filePath);
   } catch (err) {

@@ -151,6 +151,7 @@
     "actions": "Actions",
     "view_contract": "View",
     "upload": "Upload",
+    "contract_error": "Error opening contract",
     "mark_departure": "Discharge",
     "departure": "Discharge",
     "empty": "No students registered",

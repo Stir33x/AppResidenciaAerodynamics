@@ -161,12 +161,26 @@ export default function StudentsPage() {
     const formData = new FormData()
     formData.append('file', file)
 
-    await fetch(`http://localhost:3000/api/students/${studentId}/contrato`, {
+    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+    await fetch(`${API_BASE}/students/${studentId}/contrato`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
     })
     load()
+  }
+
+  const viewContract = async (studentId) => {
+    const token = localStorage.getItem('token')
+    try {
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+      const res = await fetch(`${API_BASE}/students/${studentId}/contrato/download`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      window.open(URL.createObjectURL(blob), '_blank')
+    } catch { addToast(t('students.contract_error'), 'error') }
   }
 
   const statusBadge = (estado, sm) => {
@@ -285,10 +299,10 @@ export default function StudentsPage() {
                 </td>
                 <td>
                   {s.contrato_url ? (
-                    <a href={`http://localhost:3000${s.contrato_url}`} target="_blank" className="link link-primary flex items-center gap-1" rel="noreferrer">
+                    <button onClick={() => viewContract(s.id)} className="btn btn-xs btn-soft flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
                       {t('students.view_contract')}
-                    </a>
+                    </button>
                   ) : (
                     <div className="flex gap-2 items-center">
                       <input id={`file-${s.id}`} type="file" className="file-input file-input-sm max-w-28" accept=".pdf" onChange={() => setUploading({ id: s.id })} />
@@ -374,7 +388,7 @@ export default function StudentsPage() {
               <div className="flex items-center gap-2 text-xs">
                 <span className="opacity-50">{t('students.contract')}:</span>
                 {s.contrato_url ? (
-                  <a href={`http://localhost:3000${s.contrato_url}`} target="_blank" className="link link-primary" rel="noreferrer">{t('students.view_contract')}</a>
+                  <button onClick={() => viewContract(s.id)} className="btn btn-xs btn-soft">{t('students.view_contract')}</button>
                 ) : (
                   <div className="flex gap-1 items-center flex-1">
                     <input id={`file-${s.id}`} type="file" className="file-input file-input-xs max-w-20" accept=".pdf" onChange={() => setUploading({ id: s.id })} />

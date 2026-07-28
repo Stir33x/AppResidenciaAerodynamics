@@ -122,7 +122,7 @@ router.get('/today', async (req, res) => {
 });
 
 // POST /api/cleaning/rooms/:id/complete — marcar/desmarcar habitación como limpiada hoy
-router.post('/rooms/:id/complete', async (req, res) => {
+router.post('/rooms/:id/complete', requireRole('direccion', 'administracion', 'limpieza'), async (req, res) => {
   try {
     const roomId = req.params.id;
     const hoy = new Date().toISOString().slice(0, 10);
@@ -246,7 +246,7 @@ router.delete('/checklist-items/:id', requireRole('direccion', 'administracion')
 // ==================== CHECKLIST COMPLETIONS ====================
 
 // GET /api/cleaning/checklist-completions?cleaning_block_room_id=X&fecha=YYYY-MM-DD
-router.get('/checklist-completions', async (req, res) => {
+router.get('/checklist-completions', requireRole('direccion', 'administracion', 'limpieza'), async (req, res) => {
   try {
     const { cleaning_block_room_id, fecha } = req.query;
     if (!cleaning_block_room_id || !fecha) return res.status(400).json({ error: 'cleaning_block_room_id y fecha requeridos' });
@@ -259,7 +259,7 @@ router.get('/checklist-completions', async (req, res) => {
 });
 
 // POST /api/cleaning/checklist-completions — guardar checklists de un room/zone para hoy
-router.post('/checklist-completions', async (req, res) => {
+router.post('/checklist-completions', requireRole('direccion', 'administracion', 'limpieza'), async (req, res) => {
   try {
     const { cleaning_block_room_id, fecha, items } = req.body;
     // items: [{ checklist_item_id, completada }]

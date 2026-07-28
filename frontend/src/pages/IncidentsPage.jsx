@@ -228,7 +228,7 @@ export default function IncidentsPage() {
                         const fd = new FormData()
                         fd.append('imagen', file)
                         const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
-                        const res = await fetch(`${API_BASE}/upload/image`, { method: 'POST', headers: { Authorization: localStorage.getItem('token') }, body: fd })
+                        const res = await fetch(`${API_BASE}/upload/image`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd })
                         const data = await res.json()
                         if (data.url) setForm({ ...form, imagen: data.url })
                       } catch (err) { addToast(err.message, 'error') }

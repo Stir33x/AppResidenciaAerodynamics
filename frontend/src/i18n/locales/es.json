@@ -151,6 +151,7 @@
     "actions": "Acciones",
     "view_contract": "Ver",
     "upload": "Subir",
+    "contract_error": "Error al abrir el contrato",
     "mark_departure": "Dar de baja",
     "departure": "Dar de baja",
     "empty": "No hay alumnos registrados",

@@ -27,6 +27,12 @@ router.post('/', requireRole('direccion'), async (req, res) => {
     if (!email || !password || !nombre) {
       return res.status(400).json({ error: 'Email, contraseña y nombre requeridos' });
     }
+    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Email no válido' });
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
+    }
     if (!['direccion', 'administracion', 'limpieza', 'staff', 'cocina'].includes(rol)) {
       return res.status(400).json({ error: 'Rol no válido' });
     }
@@ -34,7 +40,7 @@ router.post('/', requireRole('direccion'), async (req, res) => {
     const [existing] = await pool.query('SELECT id FROM profiles WHERE email = ?', [email]);
     if (existing.length > 0) return res.status(409).json({ error: 'El email ya está registrado' });
 
-    const hash = await bcrypt.hash(password, 10);
+      const hash = await bcrypt.hash(password, 12);
     const [result] = await pool.query(
       'INSERT INTO profiles (email, password_hash, nombre, apellidos, telefono, rol) VALUES (?, ?, ?, ?, ?, ?)',
       [email, hash, nombre, apellidos || '', telefono || '', rol]
@@ -63,9 +69,14 @@ router.put('/:id', requireRole('direccion'), async (req, res) => {
     if (nombre) { fields.push('nombre = ?'); params.push(nombre); }
     if (apellidos !== undefined) { fields.push('apellidos = ?'); params.push(apellidos); }
     if (telefono !== undefined) { fields.push('telefono = ?'); params.push(telefono); }
-    if (rol) { fields.push('rol = ?'); params.push(rol); }
+    if (rol) {
+      if (!['direccion', 'administracion', 'limpieza', 'staff', 'cocina'].includes(rol)) {
+        return res.status(400).json({ error: 'Rol no válido' });
+      }
+      fields.push('rol = ?'); params.push(rol);
+    }
     if (password) {
-      const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
       fields.push('password_hash = ?');
       params.push(hash);
     }

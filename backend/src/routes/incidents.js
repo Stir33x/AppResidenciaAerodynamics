@@ -114,8 +114,18 @@ router.put('/:id', requireRole('direccion', 'administracion', 'limpieza'), async
     const fields = [];
     const params = [];
 
-    if (estado) { fields.push('estado = ?'); params.push(estado); }
-    if (tipo) { fields.push('tipo = ?'); params.push(tipo); }
+    if (estado !== undefined) {
+      if (!['reportada', 'en_curso', 'resuelta'].includes(estado)) {
+        return res.status(400).json({ error: 'Estado no válido' });
+      }
+      fields.push('estado = ?'); params.push(estado);
+    }
+    if (tipo !== undefined) {
+      if (!['normal', 'urgente', 'mantenimiento'].includes(tipo)) {
+        return res.status(400).json({ error: 'Tipo no válido' });
+      }
+      fields.push('tipo = ?'); params.push(tipo);
+    }
     if (asignado_a !== undefined) { fields.push('asignado_a = ?'); params.push(asignado_a || null); }
     if (estado === 'resuelta') { fields.push('resuelta_at = NOW()'); }
 
