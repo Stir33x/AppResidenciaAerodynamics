@@ -9,10 +9,12 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const pool = require('../db');
     pool.query(
-      'SELECT p.email FROM students s JOIN profiles p ON p.id = s.profile_id WHERE s.id = ?',
-      [req.params.id]
-    ).then(([students]) => {
-      const email = students.length > 0 ? students[0].email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_') : 'unknown';
+      `SELECT p.email FROM students s JOIN profiles p ON p.id = s.profile_id WHERE s.id = ?
+       UNION
+       SELECT p.email FROM guests g JOIN profiles p ON p.id = g.profile_id WHERE g.id = ?`,
+      [req.params.id, req.params.id]
+    ).then(([rows]) => {
+      const email = rows.length > 0 ? rows[0].email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '_') : 'unknown';
       const dir = path.join(uploadDir, email);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       req.uploadSubfolder = email;

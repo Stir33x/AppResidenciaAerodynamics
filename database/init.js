@@ -30,7 +30,7 @@ async function initDB() {
   // Generar hash real para el admin
   const hash = await bcrypt.hash('qwerty12345', 10);
   await connection.query(
-    `UPDATE residencia_aerodynamics.profiles
+    `UPDATE gestion_residencia.profiles
      SET password_hash = ? WHERE email = 'rodriguezruizalberto14@gmail.com'`,
     [hash]
   );

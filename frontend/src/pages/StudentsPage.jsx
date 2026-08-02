@@ -8,9 +8,11 @@ export default function StudentsPage() {
   const { addToast } = useToast()
   const [students, setStudents] = useState([])
   const [rooms, setRooms] = useState([])
+  const [courses, setCourses] = useState([])
+  const [filterCurso, setFilterCurso] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1' })
+  const [form, setForm] = useState({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', cursos: [] })
   const [uploading, setUploading] = useState({ id: null })
   const [showDepartureModal, setShowDepartureModal] = useState(false)
   const [departureStudent, setDepartureStudent] = useState(null)
@@ -32,6 +34,15 @@ export default function StudentsPage() {
 
   useEffect(() => {
     (async () => { await load() })()
+  }, [])
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await fetchApi('/cursos')
+        setCourses(data)
+      } catch { setCourses([]) }
+    })()
   }, [])
 
   const loadRooms = async (editingStudent, formOverride) => {
@@ -57,7 +68,7 @@ export default function StudentsPage() {
 
   const openCreate = async () => {
     setEditing(null)
-    setForm({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1' })
+    setForm({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', cursos: [] })
     setSelectedInvItems({})
     loadRooms(null)
     try {
@@ -90,6 +101,7 @@ export default function StudentsPage() {
       fecha_salida_prevista: s.fecha_salida_prevista ? s.fecha_salida_prevista.slice(0, 10) : '',
       cuota_mensual: s.cuota_mensual || '',
       facturar_cada: s.facturar_cada || '1',
+      cursos: (s.cursos || []).map((c) => c.id),
     }
     setForm(f)
     loadRooms(s, f)
@@ -109,6 +121,13 @@ export default function StudentsPage() {
     setRegChecklistStates((prev) => ({ ...prev, [itemId]: !prev[itemId] }))
   }
 
+  const toggleCurso = (cursoId) => {
+    setForm((prev) => {
+      const has = prev.cursos.includes(cursoId)
+      return { ...prev, cursos: has ? prev.cursos.filter((c) => c !== cursoId) : [...prev.cursos, cursoId] }
+    })
+  }
+
   const handleSave = async (e) => {
     e.preventDefault()
     try {
@@ -121,6 +140,7 @@ export default function StudentsPage() {
             fecha_salida_prevista: form.fecha_salida_prevista || null,
             cuota_mensual: form.cuota_mensual ? parseFloat(form.cuota_mensual) : undefined,
             facturar_cada: form.facturar_cada ? parseInt(form.facturar_cada) : undefined,
+            cursos: form.cursos,
           }),
         })
       } else {
@@ -189,6 +209,12 @@ export default function StudentsPage() {
     return <span className={`badge ${sm ? 'badge-sm' : ''} ${cls[estado] || ''}`}>{txt[estado] || estado}</span>
   }
 
+  const filteredStudents = filterCurso
+    ? students.filter((s) => (s.cursos || []).some((c) => c.id === parseInt(filterCurso)))
+    : students
+
+  const cursoNames = (s) => (s.cursos || []).map((c) => c.nombre).join(', ')
+
   const openDepartureModal = async (s) => {
     setDepartureStudent(s)
     setShowDepartureModal(true)
@@ -254,9 +280,23 @@ export default function StudentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="page-title">{t('students.title')}</h1>
-        <button className="btn btn-primary" onClick={openCreate}>{t('students.register')}</button>
+        <div className="flex items-center gap-3">
+          {courses.length > 0 && (
+            <select
+              className="select select-sm select-bordered"
+              value={filterCurso}
+              onChange={(e) => setFilterCurso(e.target.value)}
+            >
+              <option value="">{t('students.all_courses')}</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre}</option>
+              ))}
+            </select>
+          )}
+          <button className="btn btn-primary" onClick={openCreate}>{t('students.register')}</button>
+        </div>
       </div>
 
       {/* Desktop table */}
@@ -272,13 +312,14 @@ export default function StudentsPage() {
               <th>{t('students.status')}</th>
               <th className="text-right">{t('students.amount')}</th>
               <th>{t('students.every')}</th>
+              <th>{t('students.courses')}</th>
               <th>{t('students.departure')}</th>
               <th>{t('students.contract')}</th>
               <th>{t('students.actions')}</th>
             </tr>
           </thead>
           <tbody>
-            {students.map((s) => (
+            {filteredStudents.map((s) => (
               <tr key={s.id}>
                 <td className="font-medium">{s.nombre} {s.apellidos}</td>
                 <td className="opacity-70">{s.email}</td>
@@ -288,6 +329,13 @@ export default function StudentsPage() {
                 <td>{statusBadge(s.estado)}</td>
                 <td className="text-right whitespace-nowrap font-mono">{parseFloat(s.cuota_mensual || 0).toFixed(2)}€</td>
                 <td>{s.facturar_cada > 1 ? t('common.every_n_months', { n: s.facturar_cada }) : t('common.monthly')}</td>
+                <td>
+                  {(s.cursos || []).length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {(s.cursos || []).map((c) => <span key={c.id} className="badge badge-soft badge-sm">{c.nombre}</span>)}
+                    </div>
+                  ) : <span className="opacity-40">-</span>}
+                </td>
                 <td>
                   {s.estado !== 'baja' ? (
                     <button className="btn btn-sm btn-warning" onClick={() => openDepartureModal(s)}>
@@ -317,9 +365,9 @@ export default function StudentsPage() {
                 </td>
               </tr>
             ))}
-            {students.length === 0 && (
+            {filteredStudents.length === 0 && (
               <tr>
-                <td colSpan={11} className="text-center opacity-60 py-8">{t('students.empty')}</td>
+                <td colSpan={12} className="text-center opacity-60 py-8">{t('students.empty')}</td>
               </tr>
             )}
           </tbody>
@@ -328,10 +376,10 @@ export default function StudentsPage() {
 
       {/* Mobile cards */}
       <div className="flex flex-col gap-3 lg:hidden">
-        {students.length === 0 && (
+        {filteredStudents.length === 0 && (
           <div className="text-center opacity-60 py-8">{t('students.empty')}</div>
         )}
-        {students.map((s) => (
+        {filteredStudents.map((s) => (
           <div key={s.id} className="card card-sm bg-base-100 border">
             <div className="card-body p-3 gap-2">
               <div className="flex items-center justify-between">
@@ -384,6 +432,12 @@ export default function StudentsPage() {
                     <span className="text-xs opacity-50">{t('common.inactive')}</span>
                   )}
                 </span>
+                {(s.cursos || []).length > 0 && (
+                  <span className="flex items-center gap-1 flex-wrap">
+                    <span className="opacity-50">{t('students.courses')}:</span>
+                    {(s.cursos || []).map((c) => <span key={c.id} className="badge badge-soft badge-xs">{c.nombre}</span>)}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="opacity-50">{t('students.contract')}:</span>
@@ -489,6 +543,24 @@ export default function StudentsPage() {
                     <input type="date" className="input input-bordered" value={form.fecha_salida_prevista} onChange={(e) => updateForm({ fecha_salida_prevista: e.target.value })} />
                   </div>
                 </div>
+                {courses.length > 0 && (
+                  <div className="form-control mt-3">
+                    <label className="label"><span className="label-text">{t('students.courses')}</span></label>
+                    <div className="flex flex-col gap-1.5">
+                      {courses.map((c) => (
+                        <label key={c.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="checkbox checkbox-sm checkbox-primary"
+                            checked={form.cursos.includes(c.id)}
+                            onChange={() => toggleCurso(c.id)}
+                          />
+                          <span className="text-sm">{c.nombre}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </fieldset>
 
               {!editing && storageItems.length > 0 && (

@@ -16,7 +16,7 @@ async function migrate() {
     port: Number(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: 'residencia_aerodynamics',
+    database: 'gestion_residencia',
     charset: 'utf8mb4',
   });
 
@@ -77,7 +77,7 @@ async function migrate() {
   // 6. Añadir FK
   const [fks] = await db.query(
     `SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
-     WHERE TABLE_SCHEMA = 'residencia_aerodynamics' AND TABLE_NAME = 'horarios'
+     WHERE TABLE_SCHEMA = 'gestion_residencia' AND TABLE_NAME = 'horarios'
        AND COLUMN_NAME = 'tipo_id' AND REFERENCED_TABLE_NAME = 'horario_types'`
   );
   if (fks.length === 0) {

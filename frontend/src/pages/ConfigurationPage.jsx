@@ -261,6 +261,42 @@ export default function ConfigurationPage() {
     } catch (err) { addToast(err.message, 'error') }
   }
 
+  /* --- Courses --- */
+  const [cursos, setCursos] = useState([])
+  const [newCursoNombre, setNewCursoNombre] = useState('')
+  const [cursoEditingId, setCursoEditingId] = useState(null)
+  const [cursoEditNombre, setCursoEditNombre] = useState('')
+
+  useEffect(() => { fetchApi('/cursos').then(setCursos).catch(() => {}) }, [])
+
+  const addCurso = async (e) => {
+    e.preventDefault()
+    if (!newCursoNombre.trim()) return
+    try {
+      await fetchApi('/cursos', { method: 'POST', body: JSON.stringify({ nombre: newCursoNombre.trim() }) })
+      setNewCursoNombre('')
+      fetchApi('/cursos').then(setCursos).catch(() => {})
+      addToast(t('common.saved'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
+  }
+  const saveCursoEdit = async (id) => {
+    if (!cursoEditNombre.trim()) return
+    try {
+      await fetchApi(`/cursos/${id}`, { method: 'PUT', body: JSON.stringify({ nombre: cursoEditNombre.trim() }) })
+      setCursoEditingId(null)
+      fetchApi('/cursos').then(setCursos).catch(() => {})
+      addToast(t('common.saved'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
+  }
+  const deleteCurso = async (id, name) => {
+    if (!await confirm(t('configuration.courses_confirm_delete', { name }))) return
+    try {
+      await fetchApi(`/cursos/${id}`, { method: 'DELETE' })
+      fetchApi('/cursos').then(setCursos).catch(() => {})
+      addToast(t('common.deleted'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
+  }
+
   /* --- Cleaning --- */
   const CLEAN_DIAS = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
   const [cleanTab, setCleanTab] = useState('blocks')
@@ -388,6 +424,10 @@ export default function ConfigurationPage() {
         <button className={`tab ${tab === 'doc_types' ? 'tab-active' : ''}`} onClick={() => setTab('doc_types')}>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
           {t('configuration.doc_types')}
+        </button>
+        <button className={`tab ${tab === 'courses' ? 'tab-active' : ''}`} onClick={() => setTab('courses')}>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" /></svg>
+          {t('configuration.courses')}
         </button>
       </div>
 
@@ -612,6 +652,41 @@ export default function ConfigurationPage() {
                 </div>
               ))}
               {tiposDoc.length === 0 && <p className="text-sm opacity-60 text-center py-4">{t('documents.no_types')}</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Courses Tab --- */}
+      {tab === 'courses' && (
+        <div className="card bg-base-100 border shadow-sm">
+          <div className="card-body">
+            <h3 className="font-medium mb-2">{t('configuration.courses_subtitle')}</h3>
+            <form onSubmit={addCurso} className="join w-full mb-4">
+              <input className="input input-bordered join-item flex-1" placeholder={t('configuration.courses_placeholder')} value={newCursoNombre} onChange={(e) => setNewCursoNombre(e.target.value)} required />
+              <button type="submit" className="btn btn-primary join-item">{t('common.add')}</button>
+            </form>
+            <div className="flex flex-col gap-1">
+              {cursos.map((c) => (
+                <div key={c.id} className="flex items-center justify-between p-2 bg-base-200 rounded-box gap-3">
+                  {cursoEditingId === c.id ? (
+                    <div className="flex items-center gap-2 flex-1 flex-wrap">
+                      <input className="input input-bordered input-sm flex-1 min-w-32" value={cursoEditNombre} onChange={(e) => setCursoEditNombre(e.target.value)} />
+                      <button className="btn btn-xs btn-primary" onClick={() => saveCursoEdit(c.id)}>{t('common.save')}</button>
+                      <button className="btn btn-xs btn-ghost" onClick={() => setCursoEditingId(null)}>{t('common.cancel')}</button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="badge badge-soft">{c.nombre}</span>
+                      <div className="flex gap-1">
+                        <button className="btn btn-xs btn-ghost" onClick={() => { setCursoEditingId(c.id); setCursoEditNombre(c.nombre) }}>{t('common.edit')}</button>
+                        <button className="btn btn-xs btn-ghost text-error" onClick={() => deleteCurso(c.id, c.nombre)}>{t('common.delete')}</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+              {cursos.length === 0 && <p className="text-sm opacity-60 text-center py-4">{t('configuration.courses_empty')}</p>}
             </div>
           </div>
         </div>

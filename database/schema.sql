@@ -1,7 +1,7 @@
-CREATE DATABASE IF NOT EXISTS residencia_aerodynamics
+CREATE DATABASE IF NOT EXISTS gestion_residencia
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-USE residencia_aerodynamics;
+USE gestion_residencia;
 
 -- ============================================================
 -- TABLAS
@@ -90,6 +90,23 @@ CREATE TABLE IF NOT EXISTS student_absences (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- ============================================================
+-- ZONAS COMUNES (para incidencias)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS common_zones (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO common_zones (nombre) VALUES
+  ('Cocina'),
+  ('Salón comedor'),
+  ('Lavandería'),
+  ('Patio exterior'),
+  ('Baño común planta baja');
 
 CREATE TABLE IF NOT EXISTS cleaning_checklist_items (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -223,23 +240,6 @@ INSERT IGNORE INTO rooms (nombre) VALUES
   ('201'), ('202'), ('203'), ('204'), ('205'),
   ('301'), ('302'), ('303'), ('304'), ('305');
 
--- ============================================================
--- ZONAS COMUNES (para incidencias)
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS common_zones (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL UNIQUE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-INSERT IGNORE INTO common_zones (nombre) VALUES
-  ('Cocina'),
-  ('Salón comedor'),
-  ('Lavandería'),
-  ('Patio exterior'),
-  ('Baño común planta baja');
-
 CREATE TABLE IF NOT EXISTS inventory_catalog (
   id INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(200) NOT NULL UNIQUE,
@@ -311,7 +311,7 @@ ALTER TABLE cleaning_block_rooms ADD COLUMN IF NOT EXISTS imagen VARCHAR(500) DE
 ALTER TABLE cleaning_block_rooms ADD COLUMN IF NOT EXISTS zone_id INT DEFAULT NULL,
   ADD FOREIGN KEY IF NOT EXISTS (zone_id) REFERENCES common_zones(id) ON DELETE SET NULL;
 ALTER TABLE inventory_items MODIFY COLUMN tipo ENUM('room','zone','almacen') NOT NULL DEFAULT 'room';
-ALTER TABLE profiles MODIFY COLUMN rol ENUM('direccion','administracion','limpieza','estudiante','staff','cocina') NOT NULL DEFAULT 'estudiante';
+ALTER TABLE profiles MODIFY COLUMN rol ENUM('direccion','administracion','limpieza','estudiante','invitado','staff','cocina') NOT NULL DEFAULT 'estudiante';
 
 CREATE TABLE IF NOT EXISTS registration_checklist_logs (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -322,6 +322,40 @@ CREATE TABLE IF NOT EXISTS registration_checklist_logs (
   UNIQUE KEY uq_registration_item (student_id, checklist_item_id),
   FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
   FOREIGN KEY (checklist_item_id) REFERENCES registration_checklist_items(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- HUÉSPEDES / NO ALUMNOS (alojados con rol 'invitado')
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS guests (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  profile_id INT NOT NULL UNIQUE,
+  habitacion VARCHAR(20) NOT NULL DEFAULT '',
+  fecha_entrada DATE DEFAULT NULL,
+  fecha_salida_prevista DATE DEFAULT NULL,
+  fecha_salida_real DATE DEFAULT NULL,
+  estado ENUM('activo','pendiente_salida','baja') DEFAULT 'activo',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- CRONÓMETRO DE LIMPIEZA (inicio/fin por habitación/zona)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS cleaning_sessions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  cleaning_block_room_id INT NOT NULL,
+  started_at DATETIME NOT NULL,
+  ended_at DATETIME DEFAULT NULL,
+  duration_seconds INT DEFAULT NULL,
+  started_by INT DEFAULT NULL,
+  stopped_by INT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (cleaning_block_room_id) REFERENCES cleaning_block_rooms(id) ON DELETE CASCADE,
+  FOREIGN KEY (started_by) REFERENCES profiles(id) ON DELETE SET NULL,
+  FOREIGN KEY (stopped_by) REFERENCES profiles(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- ============================================================

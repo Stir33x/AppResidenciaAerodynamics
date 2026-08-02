@@ -25,6 +25,17 @@ router.get('/', requireRole('direccion', 'administracion', 'estudiante'), async 
     }
     sql += ' ORDER BY s.created_at DESC';
     const [rows] = await pool.query(sql, params);
+    const [cursoRows] = await pool.query(`
+      SELECT sc.student_id, c.id, c.nombre
+      FROM student_cursos sc
+      JOIN cursos c ON c.id = sc.curso_id
+    `);
+    const cursosByStudent = {};
+    for (const cr of cursoRows) {
+      if (!cursosByStudent[cr.student_id]) cursosByStudent[cr.student_id] = [];
+      cursosByStudent[cr.student_id].push({ id: cr.id, nombre: cr.nombre });
+    }
+    for (const s of rows) s.cursos = cursosByStudent[s.id] || [];
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -42,6 +53,14 @@ router.get('/:id', requireRole('direccion', 'administracion'), async (req, res) 
       WHERE s.id = ?
     `, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Alumno no encontrado' });
+    const [cursoRows] = await pool.query(`
+      SELECT c.id, c.nombre
+      FROM student_cursos sc
+      JOIN cursos c ON c.id = sc.curso_id
+      WHERE sc.student_id = ?
+      ORDER BY c.nombre ASC
+    `, [req.params.id]);
+    rows[0].cursos = cursoRows;
     res.json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -52,7 +71,7 @@ router.get('/:id', requireRole('direccion', 'administracion'), async (req, res) 
 // POST /api/students
 router.post('/', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { email, password, nombre, apellidos, telefono, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada } = req.body;
+    const { email, password, nombre, apellidos, telefono, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, cursos } = req.body;
     if (!email || !password || !nombre) {
       return res.status(400).json({ error: 'Email, password y nombre requeridos' });
     }
@@ -121,6 +140,15 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
       }
     }
 
+    // Asignar cursos al alumno (opcional)
+    if (Array.isArray(cursos)) {
+      const studentId = studentResult.insertId;
+      const ids = cursos.map((c) => parseInt(c, 10)).filter((n) => !Number.isNaN(n));
+      for (const cursoId of ids) {
+        await pool.query('INSERT IGNORE INTO student_cursos (student_id, curso_id) VALUES (?, ?)', [studentId, cursoId]);
+      }
+    }
+
     res.status(201).json({ id: studentResult.insertId, profile_id: profileResult.insertId });
   } catch (err) {
     console.error(err);
@@ -134,13 +162,23 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
 // PUT /api/students/:id
 router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, acceso_habitacion, estado, cuota_mensual, facturar_cada } = req.body;
+    const { habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, acceso_habitacion, estado, cuota_mensual, facturar_cada, cursos } = req.body;
 
     if (estado !== undefined && !['activo', 'baja', 'pendiente_salida'].includes(estado)) {
       return res.status(400).json({ error: 'Estado no válido' });
     }
     if (acceso_habitacion !== undefined && !['permitido', 'restringido', 'bloqueado'].includes(acceso_habitacion)) {
       return res.status(400).json({ error: 'Acceso no válido' });
+    }
+
+    const [current] = await pool.query('SELECT id, estado FROM students WHERE id = ?', [req.params.id]);
+    if (current.length === 0) return res.status(404).json({ error: 'Alumno no encontrado' });
+
+    // Si el alumno está de baja y se le reasigna habitación o fechas, vuelve a estar activo
+    const reactivando = current[0].estado === 'baja' && (fecha_entrada !== undefined || habitacion);
+    let newEstado = estado;
+    if (reactivando && estado === undefined) {
+      newEstado = 'activo';
     }
 
     // Validar solapamiento si cambia habitación con fechas
@@ -160,7 +198,7 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
     }
 
     const fields = ['habitacion = COALESCE(?, habitacion)', 'fecha_entrada = COALESCE(?, fecha_entrada)', 'fecha_salida_prevista = COALESCE(?, fecha_salida_prevista)', 'fecha_salida_real = COALESCE(?, fecha_salida_real)', 'acceso_habitacion = COALESCE(?, acceso_habitacion)', 'estado = COALESCE(?, estado)'];
-    const params = [habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, acceso_habitacion, estado];
+    const params = [habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, acceso_habitacion, newEstado];
 
     if (cuota_mensual !== undefined) {
       fields.push('cuota_mensual = ?');
@@ -171,8 +209,22 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
       params.push(facturar_cada);
     }
 
+    // Al reactivar, se limpia la fecha de salida real
+    if (reactivando && fecha_salida_real === undefined) {
+      fields.push('fecha_salida_real = NULL');
+    }
+
     params.push(req.params.id);
     await pool.query(`UPDATE students SET ${fields.join(', ')} WHERE id = ?`, params);
+
+    // Actualizar cursos del alumno (opcional)
+    if (Array.isArray(cursos)) {
+      await pool.query('DELETE FROM student_cursos WHERE student_id = ?', [req.params.id]);
+      const ids = cursos.map((c) => parseInt(c, 10)).filter((n) => !Number.isNaN(n));
+      for (const cursoId of ids) {
+        await pool.query('INSERT IGNORE INTO student_cursos (student_id, curso_id) VALUES (?, ?)', [req.params.id, cursoId]);
+      }
+    }
 
     // Si se estableció o cambió fecha_salida_prevista, anular pagos pendientes posteriores
     if (fecha_salida_prevista !== undefined && fecha_salida_prevista) {

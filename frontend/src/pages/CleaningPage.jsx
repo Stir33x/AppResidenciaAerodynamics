@@ -1,8 +1,10 @@
-﻿import { useState, useEffect } from 'react'
+﻿import { useState, useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
+import RoomMap from '../components/RoomMap'
+import ImageViewer, { imageUrl } from '../components/ImageViewer'
 
 const DIAS = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
 
@@ -40,7 +42,7 @@ export default function CleaningPage() {
   }
 
   if (isCleaner) {
-    return <CleanerView todayData={todayData} toggleComplete={toggleComplete} t={t} />
+    return <CleanerView todayData={todayData} toggleComplete={toggleComplete} refresh={loadToday} t={t} />
   }
 
   return (
@@ -102,10 +104,19 @@ export default function CleaningPage() {
   )
 }
 
-function CleanerView({ todayData, toggleComplete, t }) {
+function CleanerView({ todayData, toggleComplete, refresh, t }) {
   const { addToast } = useToast()
   const [checklistStates, setChecklistStates] = useState({})
+  const dirtyRef = useRef(new Set())
   const [saving, setSaving] = useState(false)
+  const [selectedRoom, setSelectedRoom] = useState(null)
+
+  const runSession = async (roomId, action) => {
+    try {
+      await fetchApi(`/cleaning/rooms/${roomId}/${action}`, { method: 'POST' })
+      await refresh()
+    } catch (err) { addToast(err.message, 'error') }
+  }
 
   useEffect(() => {
     if (!todayData?.blocks) return
@@ -122,20 +133,25 @@ function CleanerView({ todayData, toggleComplete, t }) {
       }
     }
     Promise.all(promises).then((results) => {
-      const map = {}
-      for (const r of results) {
-        for (const c of r.completions) {
-          map[`${r.roomId}_${c.checklist_item_id}`] = c.completada === 1
+      setChecklistStates((prev) => {
+        const next = { ...prev }
+        for (const r of results) {
+          for (const c of r.completions) {
+            const key = `${r.roomId}_${c.checklist_item_id}`
+            if (!dirtyRef.current.has(key)) next[key] = c.completada === 1
+          }
         }
-      }
-      setChecklistStates(map)
+        return next
+      })
     })
   }, [todayData])
 
   const toggleChecklistItem = (roomId, itemId) => {
+    const key = `${roomId}_${itemId}`
+    dirtyRef.current.add(key)
     setChecklistStates((prev) => ({
       ...prev,
-      [`${roomId}_${itemId}`]: !prev[`${roomId}_${itemId}`],
+      [key]: !prev[key],
     }))
   }
 
@@ -154,8 +170,55 @@ function CleanerView({ todayData, toggleComplete, t }) {
           })),
         }),
       })
+      for (const item of items) dirtyRef.current.delete(`${roomId}_${item.id}`)
     } catch (err) { addToast(err.message, 'error') }
     setSaving(false)
+  }
+
+  // Todas las ubicaciones de hoy (habitaciones + zonas)
+  const allRooms = useMemo(
+    () => (todayData?.blocks || []).flatMap((b) => b.rooms || []),
+    [todayData]
+  )
+  const roomItems = allRooms.filter((r) => r.tipo === 'room')
+  const zoneItems = allRooms.filter((r) => r.tipo === 'zone')
+
+  // Mapa numero -> ubicación de limpieza de hoy (solo habitaciones)
+  const roomsByNumber = useMemo(() => {
+    const map = {}
+    for (const room of roomItems) {
+      const n = parseInt(String(room.room_name).trim(), 10)
+      if (!Number.isNaN(n)) map[n] = room
+    }
+    return map
+  }, [roomItems])
+
+  const selected = selectedRoom ? allRooms.find((r) => r.id === selectedRoom) || null : null
+
+  const tileClass = (room, n) => {
+    if (!room) return 'bg-base-200 border-base-300 text-base-content/40 border-dashed'
+    if (room.completada_hoy) return 'bg-success text-success-content border-success'
+    return 'bg-warning text-warning-content border-warning'
+  }
+
+  const tileBadge = (room, n) => {
+    if (!room) return null
+    if (room.completada_hoy) {
+      return (
+        <span className="absolute -top-2 -right-2 bg-success text-success-content rounded-full p-1 shadow">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-3 h-3">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        </span>
+      )
+    }
+    return null
+  }
+
+  const tileTitle = (room, n) => {
+    const label = String(n).padStart(2, '0')
+    if (!room) return `Habitación ${label} · sin limpieza hoy`
+    return room.completada_hoy ? `Habitación ${label} · completada` : `Habitación ${label} · pendiente`
   }
 
   return (
@@ -164,31 +227,81 @@ function CleanerView({ todayData, toggleComplete, t }) {
       {(!todayData?.blocks || todayData.blocks.length === 0) && (
         <div className="alert alert-soft text-sm">{t('cleaning.no_tasks')}</div>
       )}
-      {todayData?.blocks?.map((block) => (
-        <div key={block.id} className="bg-base-100 border border-base-300 border-l-2 border-l-accent/70 p-4">
-          <h2 className="section-title mb-3">{block.hora_inicio?.slice(0, 5)} — {block.hora_fin?.slice(0, 5)}</h2>
+
+      {/* MAPA DE HOY: habitaciones a limpiar resaltadas */}
+      {roomItems.length > 0 && (
+        <div className="bg-base-100 border border-base-300 border-l-2 border-l-accent/70 p-4">
+          <h2 className="section-title mb-3">{t('cleaning.today_map')}</h2>
+          <div className="flex flex-wrap items-center gap-4 text-sm mb-4">
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded bg-warning" /> {t('cleaning.pending')}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded bg-success" /> {t('cleaning.completed')}
+            </div>
+          </div>
+          <RoomMap
+            roomsByNumber={roomsByNumber}
+            onClick={(room) => setSelectedRoom(room.id)}
+            getTileClass={tileClass}
+            getBadge={tileBadge}
+            getTitle={tileTitle}
+          />
+        </div>
+      )}
+
+      {/* ZONAS COMUNES de hoy */}
+      {zoneItems.length > 0 && (
+        <div className="bg-base-100 border border-base-300 p-4">
+          <h2 className="section-title mb-3">{t('cleaning.zone_checklist_today')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {block.rooms?.map((room) => (
-                <RoomChecklistCard
-                  key={room.id}
-                  room={room}
-                  checklistStates={checklistStates}
+            {zoneItems.map((room) => (
+              <RoomChecklistCard
+                key={room.id}
+                room={room}
+                checklistStates={checklistStates}
                 toggleChecklistItem={toggleChecklistItem}
                 toggleComplete={toggleComplete}
                 saveChecklist={saveChecklist}
                 saving={saving}
+                runSession={runSession}
                 t={t}
               />
             ))}
           </div>
         </div>
-      ))}
+      )}
+
+      {/* MODAL: checklist + cronómetro de la habitación seleccionada */}
+      {selected && (
+        <dialog className="modal modal-open" onClick={() => setSelectedRoom(null)}>
+          <div className="modal-box max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-lg mb-2">
+              {t('cleaning.room_checklist')} · Habitación {selected.room_name}
+            </h3>
+            <RoomChecklistCard
+              room={selected}
+              checklistStates={checklistStates}
+              toggleChecklistItem={toggleChecklistItem}
+              toggleComplete={toggleComplete}
+              saveChecklist={saveChecklist}
+              saving={saving}
+              runSession={runSession}
+              t={t}
+            />
+            <div className="modal-action">
+              <button className="btn btn-sm" onClick={() => setSelectedRoom(null)}>{t('common.close') || 'Cerrar'}</button>
+            </div>
+          </div>
+        </dialog>
+      )}
     </div>
   )
 }
 
 function ReadOnlyRoomCard({ room, t }) {
   const [items, setItems] = useState([])
+  const [viewPhoto, setViewPhoto] = useState(null)
   const completionsUrl = room.id ? `/cleaning/checklist-completions?cleaning_block_room_id=${room.id}&fecha=${new Date().toISOString().slice(0, 10)}` : null
   const [completions, setCompletions] = useState({})
 
@@ -218,7 +331,7 @@ function ReadOnlyRoomCard({ room, t }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {room.completada_hoy && room.imagen && (
-            <img src={room.imagen} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => window.open(room.imagen, '_blank')} />
+            <img src={imageUrl(room.imagen)} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => setViewPhoto(room.imagen)} />
           )}
           {room.completada_hoy ? (
             <span className="badge badge-success badge-sm">{t('cleaning.completed')}</span>
@@ -252,14 +365,29 @@ function ReadOnlyRoomCard({ room, t }) {
           ))}
         </div>
       )}
+
+      <ImageViewer url={viewPhoto} onClose={() => setViewPhoto(null)} />
     </div>
   )
 }
 
-function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleComplete, saveChecklist, saving, t }) {
+function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleComplete, saveChecklist, saving, runSession, t }) {
   const { addToast } = useToast()
   const [items, setItems] = useState([])
   const [uploadingImg, setUploadingImg] = useState(false)
+  const [viewPhoto, setViewPhoto] = useState(null)
+  const [nowTick, setNowTick] = useState(Date.now())
+
+  const sessions = room.sessions || []
+  const openSession = sessions.find((s) => !s.ended_at) || null
+  const totalDone = sessions.filter((s) => s.ended_at).reduce((acc, s) => acc + (s.duration_seconds || 0), 0)
+  const lastSession = sessions.length > 0 ? sessions[sessions.length - 1] : null
+
+  useEffect(() => {
+    if (!openSession) return
+    const id = setInterval(() => setNowTick(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [openSession])
 
   useEffect(() => {
     const tipo = room.tipo || 'room'
@@ -275,6 +403,8 @@ function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleC
     setUploadingImg(true)
     try {
       const fd = new FormData()
+      fd.append('room', room.room_name || '')
+      fd.append('carpeta', 'limpieza')
       fd.append('imagen', file)
       const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
       const res = await fetch(`${API_BASE}/upload/image`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd })
@@ -282,6 +412,19 @@ function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleC
       if (data.url) toggleComplete(room.id, data.url)
     } catch (err) { addToast(err.message, 'error') }
     setUploadingImg(false)
+  }
+
+  const elapsed = openSession
+    ? Math.max(0, Math.floor((nowTick - new Date(openSession.started_at).getTime()) / 1000))
+    : 0
+
+  const fmt = (sec) => {
+    if (sec == null || isNaN(sec)) return '0:00'
+    const h = Math.floor(sec / 3600)
+    const m = Math.floor((sec % 3600) / 60)
+    const s = sec % 60
+    const mm = h > 0 ? String(m).padStart(2, '0') : String(m)
+    return h > 0 ? `${h}:${mm}:${String(s).padStart(2, '0')}` : `${mm}:${String(s).padStart(2, '0')}`
   }
 
   return (
@@ -295,7 +438,7 @@ function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleC
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {room.completada_hoy && room.imagen && (
-            <img src={room.imagen} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => window.open(room.imagen, '_blank')} />
+            <img src={imageUrl(room.imagen)} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => setViewPhoto(room.imagen)} />
           )}
           {!room.completada_hoy && (
             <label className={`btn btn-ghost btn-xs btn-square ${uploadingImg ? 'pointer-events-none' : ''}`}>
@@ -331,6 +474,41 @@ function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleC
         </div>
       )}
 
+      {runSession && (
+        <div className="mt-2 pt-2 border-t border-base-300">
+          {openSession ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="loading loading-spinner loading-sm text-accent" />
+                <span className="font-mono text-lg font-bold text-accent tabular-nums">{fmt(elapsed)}</span>
+              </div>
+              <button className="btn btn-xs btn-error" onClick={() => runSession(room.id, 'stop')}>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M6 18L18 6" /></svg>
+                {t('cleaning.stop')}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs opacity-60">
+                {totalDone > 0 && <span className="font-mono">{t('cleaning.done')}: {fmt(totalDone)}</span>}
+              </div>
+              <div className="flex gap-1">
+                {lastSession && (
+                  <button className="btn btn-xs btn-ghost" title={t('cleaning.undo')} onClick={() => runSession(room.id, 'undo')}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                    {t('cleaning.undo')}
+                  </button>
+                )}
+                <button className="btn btn-xs btn-primary" onClick={() => runSession(room.id, 'start')}>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z" /></svg>
+                  {t('cleaning.start')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {room.absences?.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {room.absences.map((a, i) => (
@@ -340,6 +518,8 @@ function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleC
           ))}
         </div>
       )}
+
+      <ImageViewer url={viewPhoto} onClose={() => setViewPhoto(null)} />
     </div>
   )
 }

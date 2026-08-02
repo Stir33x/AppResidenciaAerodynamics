@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
+import ImageViewer, { imageUrl } from '../components/ImageViewer'
 
 const tipos = ['urgente', 'normal', 'baja']
 const estados = ['reportada', 'en_curso', 'resuelta', 'cerrada']
@@ -22,6 +23,7 @@ export default function IncidentsPage() {
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({ habitacion: '', tipo: 'normal', descripcion: '', imagen: '' })
   const [uploadingImg, setUploadingImg] = useState(false)
+  const [viewPhoto, setViewPhoto] = useState(null)
   const [editForm, setEditForm] = useState({ estado: '', asignado_a: '', tipo: '' })
 
   const load = async () => {
@@ -146,7 +148,7 @@ export default function IncidentsPage() {
                 <td className="text-sm">{inc.asignado_nombre ? `${inc.asignado_nombre} ${inc.asignado_apellidos}` : '-'}</td>
                 <td>
                   {inc.imagen ? (
-                    <img src={inc.imagen} alt="foto" className="w-12 h-12 object-cover rounded-lg cursor-pointer" onClick={() => window.open(inc.imagen, '_blank')} />
+                    <img src={imageUrl(inc.imagen)} alt="foto" className="w-12 h-12 object-cover rounded-lg cursor-pointer" onClick={() => setViewPhoto(inc.imagen)} />
                   ) : (
                     <span className="text-xs opacity-50">{t('incidents.no_photo')}</span>
                   )}
@@ -226,6 +228,8 @@ export default function IncidentsPage() {
                       setUploadingImg(true)
                       try {
                         const fd = new FormData()
+                        fd.append('room', form.habitacion || '')
+                        fd.append('carpeta', 'incidencias')
                         fd.append('imagen', file)
                         const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
                         const res = await fetch(`${API_BASE}/upload/image`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd })
@@ -238,7 +242,7 @@ export default function IncidentsPage() {
                   {uploadingImg && <span className="loading loading-spinner loading-sm" />}
                 </div>
                 {form.imagen && (
-                  <img src={form.imagen} alt="preview" className="mt-2 w-24 h-24 object-cover rounded-lg" />
+                  <img src={imageUrl(form.imagen)} alt="preview" className="mt-2 w-24 h-24 object-cover rounded-lg" />
                 )}
               </div>
               <div className="modal-action">
@@ -280,7 +284,7 @@ export default function IncidentsPage() {
               {editing.imagen && (
                 <div className="mt-3">
                   <span className="font-medium opacity-70 text-xs">{t('incidents.photo')}</span>
-                  <img src={editing.imagen} alt="foto" className="mt-1 w-full max-h-48 object-cover rounded-lg cursor-pointer" onClick={() => window.open(editing.imagen, '_blank')} />
+                  <img src={imageUrl(editing.imagen)} alt="foto" className="mt-1 w-full max-h-48 object-cover rounded-lg cursor-pointer" onClick={() => setViewPhoto(editing.imagen)} />
                 </div>
               )}
             </div>
@@ -317,6 +321,7 @@ export default function IncidentsPage() {
         </dialog>
       )}
 
+      <ImageViewer url={viewPhoto} onClose={() => setViewPhoto(null)} />
     </div>
   )
 }

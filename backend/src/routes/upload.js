@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const uploadImage = require('../middleware/upload-image');
+const { uploadDir } = uploadImage;
 
 const router = Router();
 router.use(authMiddleware);
@@ -10,7 +11,8 @@ router.use(authMiddleware);
 router.post('/image', uploadImage.single('imagen'), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se ha enviado ninguna imagen' });
-    const url = `/uploads/images/${req.file.filename}`;
+    const rel = path.relative(uploadDir, req.file.path).split(path.sep).join('/');
+    const url = rel ? `/uploads/images/${rel}` : `/uploads/images/${req.file.filename}`;
     res.json({ url });
   } catch (err) {
     console.error(err);

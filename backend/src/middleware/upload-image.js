@@ -3,10 +3,32 @@ const path = require('path');
 const fs = require('fs');
 
 const uploadDir = path.resolve(__dirname, '..', '..', 'uploads', 'images');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+const ensureDir = (dir) => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+};
+ensureDir(uploadDir);
+
+// Sanitiza el nombre de carpeta (habitación / categoría) evitando path traversal
+const safeSegment = (v) => {
+  const s = String(v || '').trim();
+  const clean = s.replace(/[\\/]/g, '-').replace(/\.\./g, '').replace(/[\u0000-\u001f]/g, '');
+  return clean;
+};
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
+  destination: (req, file, cb) => {
+    try {
+      const room = safeSegment(req.body?.room || req.body?.habitacion);
+      const carpeta = safeSegment(req.body?.carpeta || req.body?.tipo);
+      let dir = uploadDir;
+      if (room) dir = path.join(dir, room);
+      if (carpeta) dir = path.join(dir, carpeta);
+      ensureDir(dir);
+      cb(null, dir);
+    } catch (err) {
+      cb(err);
+    }
+  },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
     cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
@@ -25,3 +47,4 @@ const uploadImage = multer({
 });
 
 module.exports = uploadImage;
+module.exports.uploadDir = uploadDir;

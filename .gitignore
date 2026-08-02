@@ -1,3 +1,4 @@
 node_modules
 docs/
 generate-manuals.js
+error-debug.log

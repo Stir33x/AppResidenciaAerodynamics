@@ -29,7 +29,7 @@ export default function Login() {
   return (
     <div className="min-h-svh bg-base-200 flex items-center justify-center p-6">
       <div className="w-full max-w-sm flex flex-col items-center">
-        <img src="/logo-aerodynamics.svg" alt="Aerodynamics" className="h-16 w-auto mx-auto mb-6" />
+        <img src="/icon.png" alt="Aerodynamics" className="h-16 w-auto mx-auto mb-6 object-contain" />
 
         <div className="card bg-base-100 shadow-sm border border-base-300 w-full">
           <form onSubmit={handleSubmit} className="card-body gap-4">

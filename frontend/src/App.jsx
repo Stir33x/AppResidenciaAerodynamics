@@ -5,7 +5,9 @@ import { ToastProvider } from './components/Toast'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import StudentsPage from './pages/StudentsPage'
+import GuestsPage from './pages/GuestsPage'
 import CleaningPage from './pages/CleaningPage'
+import CleaningDashboardPage from './pages/CleaningDashboardPage'
 import IncidentsPage from './pages/IncidentsPage'
 import SchedulesPage from './pages/SchedulesPage'
 import ScheduleViewPage from './pages/ScheduleViewPage'
@@ -19,10 +21,11 @@ import ConfigurationPage from './pages/ConfigurationPage'
 import MenuPage from './pages/MenuPage'
 import MenuViewPage from './pages/MenuViewPage'
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ roles, children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex justify-center p-10">Cargando...</div>
   if (!user) return <Navigate to="/login" replace />
+  if (roles && !roles.includes(user.rol)) return <Navigate to="/dashboard" replace />
   return <Layout>{children}</Layout>
 }
 
@@ -34,12 +37,14 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/alumnos" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
+          <Route path="/huespedes" element={<ProtectedRoute><GuestsPage /></ProtectedRoute>} />
           <Route path="/limpieza" element={<ProtectedRoute><CleaningPage /></ProtectedRoute>} />
+          <Route path="/limpieza-dashboard" element={<ProtectedRoute><CleaningDashboardPage /></ProtectedRoute>} />
           <Route path="/incidencias" element={<ProtectedRoute><IncidentsPage /></ProtectedRoute>} />
           <Route path="/horarios" element={<ProtectedRoute><SchedulesPage /></ProtectedRoute>} />
           <Route path="/horario" element={<ProtectedRoute><ScheduleViewPage /></ProtectedRoute>} />
           <Route path="/pagos" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-          <Route path="/habitaciones" element={<ProtectedRoute><RoomsPage /></ProtectedRoute>} />
+          <Route path="/habitaciones" element={<ProtectedRoute roles={['direccion', 'administracion']}><RoomsPage /></ProtectedRoute>} />
           <Route path="/documentos" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
           <Route path="/inventario" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
           <Route path="/usuarios" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
