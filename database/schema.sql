@@ -175,9 +175,8 @@ CREATE TABLE IF NOT EXISTS horarios (
 
 CREATE TABLE IF NOT EXISTS pagos (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  student_id INT NULL,
-  guest_id INT NULL DEFAULT NULL,
-  tipo ENUM('regular','extra','parking','shuttle','puntual','fianza','diaria') NOT NULL DEFAULT 'regular',
+  student_id INT NOT NULL,
+  tipo ENUM('regular','extra') NOT NULL DEFAULT 'regular',
   periodo VARCHAR(20) NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
   descripcion TEXT DEFAULT NULL,
@@ -186,8 +185,7 @@ CREATE TABLE IF NOT EXISTS pagos (
   estado ENUM('pendiente','cobrado','vencido','anulado') DEFAULT 'pendiente',
   referencia_mandato VARCHAR(100) DEFAULT '',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-  FOREIGN KEY (guest_id) REFERENCES guests(id) ON DELETE CASCADE
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- ============================================================
