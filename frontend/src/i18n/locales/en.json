@@ -263,6 +263,7 @@
     "pending": "Pending",
     "overdue": "Overdue",
     "projected": "Projected",
+    "to_invoice": "To invoice",
     "student": "Student",
     "room": "Room",
     "period": "Period",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -22,6 +22,48 @@ export default function PaymentsPage() {
     descripcion: '', fecha_vencimiento: '', fecha_cobro: '', referencia_mandato: '',
   })
   const [forecast, setForecast] = useState(null)
+
+  // Datos del gráfico: la altura de cada barra = dinero previsto del mes
+  // (lo ya facturado cobrado/pendiente/vencido + lo que falta por facturar).
+  // Así el pendiente nunca puede superar al previsto.
+  const chartData = useMemo(() => {
+    if (!forecast) return []
+    const merged = {}
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre','january','february','march','april','may','june','july','august','september','october','november','december']
+    const sortKey = (s) => {
+      const t = String(s).toLowerCase().replace(/\s+de\s+/, ' ').match(/([a-z]+)\s+(\d+)/)
+      if (!t) return Infinity
+      const mi = meses.indexOf(t[1])
+      if (mi < 0) return Infinity
+      return parseInt(t[2]) * 12 + mi
+    }
+    for (const r of forecast.realPayments || []) {
+      merged[r.periodo] = {
+        periodo: r.periodo,
+        cobrado: parseFloat(r.cobrado) || 0,
+        pendiente: parseFloat(r.pendiente) || 0,
+        vencido: parseFloat(r.vencido) || 0,
+        projected: 0,
+      }
+    }
+    for (const p of forecast.projection || []) {
+      const projected = parseFloat(p.projected) || 0
+      if (merged[p.periodo]) merged[p.periodo].projected = projected
+      else merged[p.periodo] = { periodo: p.periodo, cobrado: 0, pendiente: 0, vencido: 0, projected }
+    }
+    return Object.values(merged).map((x) => {
+      const invoiced = x.cobrado + x.pendiente + x.vencido
+      return { ...x, invoiced, rest: Math.max(0, x.projected - invoiced) }
+    }).sort((a, b) => sortKey(a.periodo) - sortKey(b.periodo))
+  }, [forecast])
+
+  const totals = chartData.reduce((acc, x) => {
+    acc.previsto += x.invoiced + x.rest
+    acc.cobrado += x.cobrado
+    acc.pendiente += x.pendiente
+    acc.vencido += x.vencido
+    return acc
+  }, { previsto: 0, cobrado: 0, pendiente: 0, vencido: 0 })
 
   const buildQs = () => {
     const p = new URLSearchParams()
@@ -147,27 +189,29 @@ export default function PaymentsPage() {
         <div className="card bg-base-100 shadow-sm border">
           <div className="card-body">
             <h2 className="card-title">{t('payments.chart_title')}</h2>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+              <div className="rounded-box bg-primary/5 border border-primary/20 p-3 text-center">
+                <p className="text-xs font-medium opacity-70">{t('payments.projected')}</p>
+                <p className="text-xl font-bold text-primary">{totals.previsto.toFixed(2)} €</p>
+              </div>
+              <div className="rounded-box bg-success/5 border border-success/20 p-3 text-center">
+                <p className="text-xs font-medium opacity-70">{t('payments.collected')}</p>
+                <p className="text-xl font-bold text-success">{totals.cobrado.toFixed(2)} €</p>
+              </div>
+              <div className="rounded-box bg-warning/5 border border-warning/20 p-3 text-center">
+                <p className="text-xs font-medium opacity-70">{t('payments.pending')}</p>
+                <p className="text-xl font-bold text-warning">{totals.pendiente.toFixed(2)} €</p>
+              </div>
+              <div className="rounded-box bg-error/5 border border-error/20 p-3 text-center">
+                <p className="text-xs font-medium opacity-70">{t('payments.overdue')}</p>
+                <p className="text-xl font-bold text-error">{totals.vencido.toFixed(2)} €</p>
+              </div>
+            </div>
+
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={(() => {
-                  const merged = {}
-                  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre','january','february','march','april','may','june','july','august','september','october','november','december']
-                  for (const r of forecast.realPayments) {
-                    merged[r.periodo] = { periodo: r.periodo, cobrado: parseFloat(r.cobrado), pendiente: parseFloat(r.pendiente), vencido: parseFloat(r.vencido), projected: 0 }
-                  }
-                  for (const p of forecast.projection) {
-                    if (merged[p.periodo]) merged[p.periodo].projected = p.projected
-                    else merged[p.periodo] = { periodo: p.periodo, cobrado: 0, pendiente: 0, vencido: 0, projected: p.projected }
-                  }
-                  return Object.values(merged).sort((a, b) => {
-                    const pa = a.periodo.toLowerCase().match(/(\w+)\s+(\d+)/)
-                    const pb = b.periodo.toLowerCase().match(/(\w+)\s+(\d+)/)
-                    if (!pa || !pb) return 0
-                    const ya = parseInt(pa[2]), yb = parseInt(pb[2])
-                    if (ya !== yb) return ya - yb
-                    return meses.indexOf(pa[1]) - meses.indexOf(pb[1])
-                  })
-                })()}>
+                <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-base-300" />
                   <XAxis dataKey="periodo" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" height={50} />
                   <YAxis tick={{ fontSize: 11 }} />
@@ -176,7 +220,7 @@ export default function PaymentsPage() {
                   <Bar dataKey="cobrado" fill={COLORS.cobrado} name={t('payments.collected')} stackId="a" />
                   <Bar dataKey="pendiente" fill={COLORS.pendiente} name={t('payments.pending')} stackId="a" />
                   <Bar dataKey="vencido" fill={COLORS.vencido} name={t('payments.overdue')} stackId="a" />
-                  <Bar dataKey="projected" fill={COLORS.projected} name={t('payments.projected')} />
+                  <Bar dataKey="rest" fill={COLORS.projected} name={t('payments.to_invoice')} stackId="a" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
