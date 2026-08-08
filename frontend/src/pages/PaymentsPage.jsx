@@ -103,9 +103,15 @@ export default function PaymentsPage() {
   }
 
   const tipoBadge = (tipo) => {
-    return tipo === 'extra'
-      ? <span className="badge badge-soft badge-warning">{t('payments.extra')}</span>
-      : <span className="badge badge-soft">{t('payments.regular')}</span>
+    const cls = {
+      extra: 'badge-soft badge-warning',
+      parking: 'badge-soft badge-info',
+      shuttle: 'badge-soft badge-primary',
+      puntual: 'badge-soft badge-accent',
+      fianza: 'badge-soft badge-secondary',
+      diaria: 'badge-soft badge-neutral',
+    }
+    return <span className={`badge ${cls[tipo] || ''}`}>{t(`payments.${tipo}`)}</span>
   }
 
   return (
@@ -129,6 +135,11 @@ export default function PaymentsPage() {
           <option value="">{t('payments.all_types')}</option>
           <option value="regular">{t('payments.regular')}</option>
           <option value="extra">{t('payments.extra')}</option>
+          <option value="parking">{t('payments.parking')}</option>
+          <option value="shuttle">{t('payments.shuttle')}</option>
+          <option value="puntual">{t('payments.puntual')}</option>
+          <option value="fianza">{t('payments.fianza')}</option>
+          <option value="diaria">{t('payments.diaria')}</option>
         </select>
       </div>
 
@@ -257,6 +268,11 @@ export default function PaymentsPage() {
                 <select className="select select-bordered" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
                   <option value="regular">{t('payments.regular')}</option>
                   <option value="extra">{t('payments.extra')}</option>
+                  <option value="parking">{t('payments.parking')}</option>
+                  <option value="shuttle">{t('payments.shuttle')}</option>
+                  <option value="puntual">{t('payments.puntual')}</option>
+                  <option value="fianza">{t('payments.fianza')}</option>
+                  <option value="diaria">{t('payments.diaria')}</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">

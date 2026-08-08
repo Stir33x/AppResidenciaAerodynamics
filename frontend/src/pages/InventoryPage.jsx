@@ -28,6 +28,14 @@ export default function InventoryPage() {
   const [moveType, setMoveType] = useState('room')
   const [moveRoom, setMoveRoom] = useState('')
   const [moveZone, setMoveZone] = useState('')
+  const [showBulk, setShowBulk] = useState(false)
+  const [bulkRoom, setBulkRoom] = useState('')
+  const [bulkItems, setBulkItems] = useState({})
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [showLocations, setShowLocations] = useState(false)
+  const [locationsItem, setLocationsItem] = useState(null)
+  const [locations, setLocations] = useState([])
+  const [locationsLoading, setLocationsLoading] = useState(false)
 
   useEffect(() => {
     fetchApi('/rooms').then(setRooms).catch(() => {})
@@ -137,6 +145,74 @@ export default function InventoryPage() {
     loadCatalog()
   }
 
+  const openBulk = async () => {
+    setBulkRoom(selectedRoom || '')
+    setBulkItems({})
+    setShowBulk(true)
+    if (selectedRoom) await loadBulkRoom(selectedRoom)
+  }
+
+  const loadBulkRoom = async (roomName) => {
+    if (!roomName) { setBulkItems({}); return }
+    setBulkLoading(true)
+    try {
+      const data = await fetchApi(`/inventory?tipo=room&room_name=${encodeURIComponent(roomName)}`)
+      const next = {}
+      data.forEach((a) => { next[a.catalog_id] = a.cantidad })
+      setBulkItems(next)
+    } catch {
+      setBulkItems({})
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const onBulkRoomChange = (roomName) => {
+    setBulkRoom(roomName)
+    loadBulkRoom(roomName)
+  }
+
+  const saveBulk = async (e) => {
+    e.preventDefault()
+    if (!bulkRoom) return
+    const items = Object.entries(bulkItems)
+      .map(([catalog_id, cantidad]) => ({ catalog_id: parseInt(catalog_id), cantidad }))
+      .filter((i) => i.cantidad > 0)
+    try {
+      await fetchApi('/inventory/bulk-assign', {
+        method: 'POST',
+        body: JSON.stringify({ room_name: bulkRoom, items }),
+      })
+      setShowBulk(false)
+      if (selectedRoom === bulkRoom) loadAssignments()
+      loadCatalog()
+      addToast(t('common.saved'), 'success')
+    } catch (err) { addToast(err.message, 'error') }
+  }
+
+  const openLocations = async (item) => {
+    setLocationsItem(item)
+    setLocations([])
+    setLocationsLoading(true)
+    setShowLocations(true)
+    try {
+      const data = await fetchApi(`/inventory/locations?catalog_id=${item.id}`)
+      setLocations(data)
+    } catch {
+      setLocations([])
+    } finally {
+      setLocationsLoading(false)
+    }
+  }
+
+  const locationLabel = (l) => {
+    if (l.tipo === 'room') return l.room_name
+    if (l.tipo === 'zone') return l.zone_nombre || `Zona #${l.zone_id}`
+    return t('inventory.storage_title')
+  }
+
+  const locationsTotal = locations.reduce((acc, l) => acc + parseInt(l.cantidad || 0), 0)
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="page-title">{t('inventory.title')}</h1>
@@ -168,12 +244,17 @@ export default function InventoryPage() {
                       <span className="font-medium">{item.nombre}</span>
                       <span className="badge badge-sm badge-soft">{t('inventory.total_badge', { n: item.total_asignado })}</span>
                     </div>
-                    {isAdmin && (
-                      <div className="flex gap-1">
-                        <button className="btn btn-xs btn-ghost" onClick={() => { setEditingCat(item.id); setEditCatName(item.nombre) }}>{t('common.edit')}</button>
-                        <button className="btn btn-xs btn-ghost text-error" onClick={() => deleteCatalogItem(item.id)}>{t('common.delete')}</button>
-                      </div>
-                    )}
+                    <div className="flex gap-1">
+                      <button className="btn btn-xs btn-ghost" onClick={() => openLocations(item)}>
+                        {t('inventory.view_locations')}
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <button className="btn btn-xs btn-ghost" onClick={() => { setEditingCat(item.id); setEditCatName(item.nombre) }}>{t('common.edit')}</button>
+                          <button className="btn btn-xs btn-ghost text-error" onClick={() => deleteCatalogItem(item.id)}>{t('common.delete')}</button>
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -203,6 +284,11 @@ export default function InventoryPage() {
             {tab === 'room' && (
               <>
                 <p className="text-sm opacity-70 mb-1">{t('inventory.select_room')}</p>
+                {isAdmin && catalog.length > 0 && (
+                  <button className="btn btn-sm btn-primary mb-2" onClick={openBulk}>
+                    {t('inventory.bulk_assign')}
+                  </button>
+                )}
                 <div className="flex flex-col gap-1 max-h-40 overflow-y-auto border rounded-box p-1">
                   {rooms.map((r) => (
                     <button key={r.id} className={`btn btn-sm btn-ghost justify-start text-left ${selectedRoom === r.nombre ? 'btn-active' : ''}`} onClick={() => selectRoom(r.nombre)}>
@@ -370,6 +456,121 @@ export default function InventoryPage() {
           )}
         </div>
       </div>
+
+      {showBulk && (
+        <dialog className="modal modal-open" onClick={() => setShowBulk(false)}>
+          <div className="modal-box max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">{t('inventory.bulk_title')}</h3>
+                <p className="text-sm opacity-60">{t('inventory.bulk_desc')}</p>
+              </div>
+            </div>
+
+            <form onSubmit={saveBulk} className="flex flex-col gap-4">
+              <div className="form-control">
+                <label className="label"><span className="label-text">{t('inventory.select_room')}</span></label>
+                <select className="select select-bordered" value={bulkRoom} onChange={(e) => onBulkRoomChange(e.target.value)} required>
+                  <option value="">{t('common.select')}</option>
+                  {rooms.map((r) => (
+                    <option key={r.id} value={r.nombre}>{r.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {bulkRoom && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 max-h-80 overflow-y-auto border rounded-box p-3 gap-1">
+                  {bulkLoading && <p className="text-sm opacity-60 col-span-full text-center py-2">{t('common.loading')}</p>}
+                  {!bulkLoading && catalog.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-base-200 transition-colors">
+                      <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-xs checkbox-primary"
+                          checked={(bulkItems[c.id] || 0) > 0}
+                          onChange={() => setBulkItems({ ...bulkItems, [c.id]: (bulkItems[c.id] || 0) > 0 ? 0 : 1 })}
+                        />
+                        <span className="text-sm truncate">{c.nombre}</span>
+                      </label>
+                      {(bulkItems[c.id] || 0) > 0 ? (
+                        <input
+                          type="number"
+                          min="1"
+                          className="input input-xs input-bordered w-16 text-center"
+                          value={bulkItems[c.id]}
+                          onChange={(e) => setBulkItems({ ...bulkItems, [c.id]: Math.max(parseInt(e.target.value) || 0, 0) })}
+                        />
+                      ) : (
+                        <span className="text-xs opacity-40 w-16 text-center">-</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="modal-action">
+                <button type="button" className="btn btn-soft" onClick={() => setShowBulk(false)}>{t('common.cancel')}</button>
+                <button type="submit" className="btn btn-primary" disabled={!bulkRoom}>
+                  {t('inventory.bulk_save')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </dialog>
+      )}
+
+      {showLocations && (
+        <dialog className="modal modal-open" onClick={() => setShowLocations(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">{t('inventory.locations_title', { name: locationsItem?.nombre })}</h3>
+                <p className="text-sm opacity-60">{t('inventory.locations_desc')}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {locationsLoading && <p className="text-sm opacity-60 text-center py-4">{t('common.loading')}</p>}
+              {!locationsLoading && locations.map((l) => (
+                <div key={l.id} className="flex items-center justify-between p-2 bg-base-200 rounded-box">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {l.tipo === 'room' && <span className="badge badge-sm badge-soft">{t('inventory.to_room')}</span>}
+                    {l.tipo === 'zone' && <span className="badge badge-sm badge-soft">{t('inventory.to_zone')}</span>}
+                    {l.tipo === 'almacen' && <span className="badge badge-sm badge-soft">{t('inventory.storage_tab')}</span>}
+                    <span className="font-medium truncate">{locationLabel(l)}</span>
+                  </div>
+                  <span className="badge badge-sm badge-primary">{t('inventory.qty', { n: l.cantidad })}</span>
+                </div>
+              ))}
+              {!locationsLoading && locations.length === 0 && (
+                <p className="text-sm opacity-60 text-center py-4">{t('inventory.locations_empty')}</p>
+              )}
+            </div>
+
+            {!locationsLoading && locations.length > 0 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-base-300">
+                <span className="text-sm font-medium">{t('inventory.total_label')}</span>
+                <span className="badge badge-lg badge-soft">{t('inventory.total_badge', { n: locationsTotal })}</span>
+              </div>
+            )}
+
+            <div className="modal-action">
+              <button className="btn" onClick={() => setShowLocations(false)}>{t('common.close')}</button>
+            </div>
+          </div>
+        </dialog>
+      )}
     </div>
   )
 }

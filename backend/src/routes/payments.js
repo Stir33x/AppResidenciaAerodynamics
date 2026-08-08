@@ -11,10 +11,15 @@ router.get('/', requireRole('direccion', 'administracion', 'estudiante'), async 
   try {
     const { estado, tipo, student_id } = req.query;
     let sql = `
-      SELECT p.*, pr.nombre, pr.apellidos, s.habitacion
+      SELECT p.*,
+        COALESCE(pr.nombre, gp.nombre) AS nombre,
+        COALESCE(pr.apellidos, gp.apellidos) AS apellidos,
+        COALESCE(s.habitacion, g.habitacion) AS habitacion
       FROM pagos p
-      JOIN students s ON s.id = p.student_id
-      JOIN profiles pr ON pr.id = s.profile_id
+      LEFT JOIN students s ON s.id = p.student_id
+      LEFT JOIN profiles pr ON pr.id = s.profile_id
+      LEFT JOIN guests g ON g.id = p.guest_id
+      LEFT JOIN profiles gp ON gp.id = g.profile_id
     `;
     const params = [];
     const conditions = [];
@@ -58,7 +63,7 @@ router.get('/forecast', requireRole('direccion', 'administracion'), async (req, 
 
     // 2. Estudiantes activos con cuota para proyectar próximos meses
     const [students] = await pool.query(`
-      SELECT id, cuota_mensual, facturar_cada, fecha_entrada
+      SELECT id, cuota_mensual, facturar_cada, fecha_entrada, tipo_tarifa
       FROM students
       WHERE estado IN ('activo','pendiente_salida') AND cuota_mensual > 0
     `);
@@ -80,7 +85,10 @@ router.get('/forecast', requireRole('direccion', 'administracion'), async (req, 
         if (!s.fecha_entrada) continue;
         if (existingSet.has(`${s.id}|${periodo}`)) continue;
         const mesesDesdeEntrada = Math.floor((d - new Date(s.fecha_entrada)) / (30 * 24 * 60 * 60 * 1000));
-        if (mesesDesdeEntrada >= 0 && (mesesDesdeEntrada % s.facturar_cada === 0)) {
+        const interval = parseInt(s.facturar_cada);
+        // Tarifa diaria y facturación semanal/puntual no entran en la proyección mensual
+        if (s.tipo_tarifa === 'diaria' || !interval || interval <= 0) continue;
+        if (mesesDesdeEntrada >= 0 && (mesesDesdeEntrada % interval === 0)) {
           projected += parseFloat(s.cuota_mensual);
         }
       }
@@ -98,10 +106,15 @@ router.get('/forecast', requireRole('direccion', 'administracion'), async (req, 
 router.get('/:id', requireRole('direccion', 'administracion', 'estudiante'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT p.*, pr.nombre, pr.apellidos, s.habitacion
+      SELECT p.*,
+        COALESCE(pr.nombre, gp.nombre) AS nombre,
+        COALESCE(pr.apellidos, gp.apellidos) AS apellidos,
+        COALESCE(s.habitacion, g.habitacion) AS habitacion
       FROM pagos p
-      JOIN students s ON s.id = p.student_id
-      JOIN profiles pr ON pr.id = s.profile_id
+      LEFT JOIN students s ON s.id = p.student_id
+      LEFT JOIN profiles pr ON pr.id = s.profile_id
+      LEFT JOIN guests g ON g.id = p.guest_id
+      LEFT JOIN profiles gp ON gp.id = g.profile_id
       WHERE p.id = ?
     `, [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Pago no encontrado' });
@@ -123,14 +136,14 @@ router.get('/:id', requireRole('direccion', 'administracion', 'estudiante'), asy
 // POST /api/pagos
 router.post('/', requireRole('direccion'), async (req, res) => {
   try {
-    const { student_id, tipo, periodo, importe, descripcion, fecha_vencimiento, fecha_cobro, referencia_mandato } = req.body;
-    if (!student_id || !periodo || !importe || !fecha_vencimiento) {
+    const { student_id, guest_id, tipo, periodo, importe, descripcion, fecha_vencimiento, fecha_cobro, referencia_mandato } = req.body;
+    if ((!student_id && !guest_id) || !periodo || !importe || !fecha_vencimiento) {
       return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
 
     const [result] = await pool.query(
-      'INSERT INTO pagos (student_id, tipo, periodo, importe, descripcion, fecha_vencimiento, fecha_cobro, referencia_mandato) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [student_id, tipo || 'regular', periodo, importe, descripcion || null, fecha_vencimiento, fecha_cobro || null, referencia_mandato || '']
+      'INSERT INTO pagos (student_id, guest_id, tipo, periodo, importe, descripcion, fecha_vencimiento, fecha_cobro, referencia_mandato) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [student_id || null, guest_id || null, tipo || 'regular', periodo, importe, descripcion || null, fecha_vencimiento, fecha_cobro || null, referencia_mandato || '']
     );
 
     res.status(201).json({ id: result.insertId });

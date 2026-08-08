@@ -72,6 +72,24 @@ router.get('/', requireRole('direccion', 'administracion', 'limpieza'), async (r
   } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
 });
 
+// GET /inventory/locations?catalog_id=X
+// Todas las ubicaciones (habitaciones, zonas comunes y almacén)
+// donde está asignado un artículo del catálogo, con su cantidad.
+router.get('/locations', requireRole('direccion', 'administracion', 'limpieza'), async (req, res) => {
+  try {
+    const { catalog_id } = req.query;
+    if (!catalog_id) return res.status(400).json({ error: 'catalog_id requerido' });
+    const [rows] = await pool.query(`
+      SELECT i.id, i.tipo, i.room_name, i.zone_id, i.cantidad, cz.nombre AS zone_nombre
+      FROM inventory_items i
+      LEFT JOIN common_zones cz ON cz.id = i.zone_id
+      WHERE i.catalog_id = ?
+      ORDER BY i.tipo ASC, i.room_name ASC, cz.nombre ASC
+    `, [catalog_id]);
+    res.json(rows);
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+
 router.post('/', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
     const { catalog_id, tipo, room_name, zone_id, cantidad } = req.body;
@@ -187,6 +205,39 @@ router.put('/:id/move', requireRole('direccion', 'administracion'), async (req, 
       [tipo, tipo === 'room' ? room_name : null, tipo === 'zone' ? zone_id : null, req.params.id]
     );
     res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
+});
+
+// POST /inventory/bulk-assign — asigna de golpe varios artículos del catálogo
+// a una habitación (señalando qué hay en cada habitación sin ir uno a uno).
+// items = [{ catalog_id, cantidad }]; la cantidad se fija exacta (upsert).
+router.post('/bulk-assign', requireRole('direccion', 'administracion'), async (req, res) => {
+  try {
+    const { room_name, items } = req.body;
+    if (!room_name || !items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'room_name y items[] requeridos' });
+    }
+
+    let assigned = 0;
+    for (const { catalog_id, cantidad } of items) {
+      if (!catalog_id || !cantidad || cantidad <= 0) continue;
+
+      const [existing] = await pool.query(
+        "SELECT id FROM inventory_items WHERE tipo = 'room' AND room_name = ? AND catalog_id = ?",
+        [room_name, catalog_id]
+      );
+      if (existing.length > 0) {
+        await pool.query('UPDATE inventory_items SET cantidad = ? WHERE id = ?', [cantidad, existing[0].id]);
+      } else {
+        await pool.query(
+          "INSERT INTO inventory_items (catalog_id, tipo, room_name, cantidad) VALUES (?, 'room', ?, ?)",
+          [catalog_id, room_name, cantidad]
+        );
+      }
+      assigned++;
+    }
+
+    res.json({ ok: true, assigned });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Error del servidor' }); }
 });
 

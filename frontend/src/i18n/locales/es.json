@@ -1,6 +1,6 @@
 {
   "layout": {
-    "brand": "Residencia Aerodynamics",
+    "brand": "Aerodynamics INN",
     "dashboard": "Dashboard",
     "students": "Alumnos",
     "guests": "Huéspedes",
@@ -118,7 +118,8 @@
     "6_months": "6 meses",
     "12_months": "12 meses",
     "available": "Disponibles",
-    "actions": "Acciones"
+    "actions": "Acciones",
+    "loading": "Cargando..."
   },
   "allergens": {
     "Gluten": "Gluten",
@@ -149,8 +150,12 @@
     "status": "Estado",
     "amount": "Importe",
     "every": "Cada",
+    "tariff": "Tarifa",
+    "search_placeholder": "Buscar alumno, email, habitación...",
     "courses": "Cursos",
     "all_courses": "Todos los cursos",
+    "all_tariffs": "Todas las tarifas",
+    "daily_price": "Precio diario (€)",
     "access": "Acceso",
     "contract": "Contrato",
     "actions": "Acciones",
@@ -192,6 +197,16 @@
     "registration_checklist": "Checklist de alta",
     "inventory_assignment": "Asignar objetos del inventario (almacén)"
   },
+  "tariff_types": {
+    "mayor_9": "Más de 9 meses",
+    "menor_9": "Menos de 9 meses",
+    "diaria": "Tarifa diaria",
+    "cantidad": "Cantidad específica"
+  },
+  "billing": {
+    "semanal": "Semanal",
+    "puntual": "Pago puntual"
+  },
   "guests": {
     "title": "Huéspedes",
     "register": "Registrar",
@@ -227,7 +242,15 @@
     "contract_error": "No se pudo gestionar el contrato",
     "departure_modal_title": "Registrar salida",
     "departure_confirm": "Dar de baja",
-    "confirm_departure": "¿Marcar salida real de {{nombre}} {{apellidos}}?"
+    "confirm_departure": "¿Marcar salida real de {{nombre}} {{apellidos}}?",
+    "amount": "Importe",
+    "tariff": "Tarifa",
+    "all_tariffs": "Todas las tarifas",
+    "search_placeholder": "Buscar huésped...",
+    "section_billing": "Facturación",
+    "receipt_amount": "Importe por recibo (€)",
+    "daily_price": "Precio diario (€)",
+    "billing_frequency": "Cobrar cada"
   },
   "payments": {
     "title": "Pagos",
@@ -251,6 +274,11 @@
     "type": "Tipo",
     "regular": "Normal",
     "extra": "Extra",
+    "parking": "Parking",
+    "shuttle": "Shuttle",
+    "puntual": "Pago puntual",
+    "fianza": "Pago fianza",
+    "diaria": "Tarifa diaria",
     "all_types": "Todos los tipos",
     "description": "Descripción",
     "desc_placeholder": "ej. Pago extra por daños",
@@ -545,9 +573,18 @@
     "storage_title": "Almacén",
     "storage_empty": "No hay artículos en el almacén",
     "add_to_storage": "Añadir artículo al almacén",
+    "bulk_assign": "Asignar artículos a habitaciones",
+    "bulk_title": "Asignar artículos a una habitación",
+    "bulk_desc": "Marca qué artículos del catálogo hay en la habitación y su cantidad, de una sola vez",
+    "bulk_save": "Guardar asignaciones",
     "move_to": "Mover a",
     "to_room": "Habitación",
-    "to_zone": "Zona común"
+    "to_zone": "Zona común",
+    "view_locations": "Ver dónde",
+    "locations_title": "¿Dónde hay {{name}}?",
+    "locations_desc": "Ubicaciones donde está asignado este artículo",
+    "locations_empty": "Este artículo no está asignado en ningún sitio",
+    "total_label": "Total"
   },
   "user_roles": {
     "direccion": "direccion",

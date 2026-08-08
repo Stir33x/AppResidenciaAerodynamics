@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const { dailyAmount, dailyPeriodo } = require('../lib/billing');
 
 const router = Router();
 
@@ -71,7 +72,7 @@ router.get('/:id', requireRole('direccion', 'administracion'), async (req, res) 
 // POST /api/students
 router.post('/', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { email, password, nombre, apellidos, telefono, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, cursos } = req.body;
+    const { email, password, nombre, apellidos, telefono, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, tipo_tarifa, cursos } = req.body;
     if (!email || !password || !nombre) {
       return res.status(400).json({ error: 'Email, password y nombre requeridos' });
     }
@@ -101,17 +102,34 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
     );
 
     const [studentResult] = await pool.query(
-      'INSERT INTO students (profile_id, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada) VALUES (?, ?, ?, ?, ?, ?)',
-      [profileResult.insertId, habitacion || '', fecha_entrada || null, fecha_salida_prevista || null, cuota_mensual || 0, facturar_cada || 1]
+      'INSERT INTO students (profile_id, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, tipo_tarifa) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [profileResult.insertId, habitacion || '', fecha_entrada || null, fecha_salida_prevista || null, cuota_mensual || 0, facturar_cada || '1', tipo_tarifa || 'cantidad']
     );
 
-    // Auto-generar recibos desde la fecha de entrada
-    if (fecha_entrada && parseFloat(cuota_mensual) > 0) {
-      const studentId = studentResult.insertId;
+    // Auto-generar recibos según el tipo de tarifa
+    const facturarNum = parseInt(facturar_cada);
+    const studentId = studentResult.insertId;
+    const amount = parseFloat(cuota_mensual);
+
+    // Tarifa diaria: una única factura = días de estancia × precio diario
+    if (tipo_tarifa === 'diaria' && fecha_entrada && fecha_salida_prevista && amount > 0) {
+      const importe = dailyAmount(fecha_entrada, fecha_salida_prevista, amount);
+      const periodo = dailyPeriodo(fecha_entrada, fecha_salida_prevista);
+      const vencimiento = new Date(new Date(fecha_salida_prevista).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const [existing] = await pool.query(
+        'SELECT id FROM pagos WHERE student_id = ? AND periodo = ? AND estado != ?',
+        [studentId, periodo, 'anulado']
+      );
+      if (existing.length === 0) {
+        await pool.query(
+          "INSERT INTO pagos (student_id, tipo, periodo, importe, fecha_vencimiento) VALUES (?, 'diaria', ?, ?, ?)",
+          [studentId, periodo, importe, vencimiento]
+        );
+      }
+    } else if (tipo_tarifa !== 'diaria' && fecha_entrada && amount > 0 && /^\d+$/.test(String(facturar_cada)) && facturarNum > 0) {
       const startMonth = new Date(fecha_entrada);
       startMonth.setDate(1);
-      const interval = parseInt(facturar_cada) || 1;
-      const amount = parseFloat(cuota_mensual);
+      const interval = facturarNum;
 
       let endMonth;
       if (fecha_salida_prevista) {
@@ -162,7 +180,7 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
 // PUT /api/students/:id
 router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, acceso_habitacion, estado, cuota_mensual, facturar_cada, cursos } = req.body;
+    const { habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, acceso_habitacion, estado, cuota_mensual, facturar_cada, tipo_tarifa, cursos } = req.body;
 
     if (estado !== undefined && !['activo', 'baja', 'pendiente_salida'].includes(estado)) {
       return res.status(400).json({ error: 'Estado no válido' });
@@ -207,6 +225,10 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
     if (facturar_cada !== undefined) {
       fields.push('facturar_cada = ?');
       params.push(facturar_cada);
+    }
+    if (tipo_tarifa !== undefined) {
+      fields.push('tipo_tarifa = ?');
+      params.push(tipo_tarifa);
     }
 
     // Al reactivar, se limpia la fecha de salida real

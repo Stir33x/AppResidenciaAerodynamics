@@ -1,6 +1,6 @@
 ﻿{
   "layout": {
-    "brand": "Residencia Aerodynamics",
+    "brand": "Aerodynamics INN",
     "dashboard": "Dashboard",
     "students": "Students",
     "guests": "Guests",
@@ -118,7 +118,8 @@
     "6_months": "6 months",
     "12_months": "12 months",
     "available": "Available",
-    "actions": "Actions"
+    "actions": "Actions",
+    "loading": "Loading..."
   },
   "allergens": {
     "Gluten": "Gluten",
@@ -149,8 +150,12 @@
     "status": "Status",
     "amount": "Amount",
     "every": "Every",
+    "tariff": "Tariff",
+    "search_placeholder": "Search student, email, room...",
     "courses": "Courses",
     "all_courses": "All courses",
+    "all_tariffs": "All tariffs",
+    "daily_price": "Daily price (€)",
     "access": "Access",
     "contract": "Contract",
     "actions": "Actions",
@@ -192,6 +197,16 @@
     "registration_checklist": "Registration checklist",
     "inventory_assignment": "Assign inventory items (storage)"
   },
+  "tariff_types": {
+    "mayor_9": "More than 9 months",
+    "menor_9": "Less than 9 months",
+    "diaria": "Daily rate",
+    "cantidad": "Specific amount"
+  },
+  "billing": {
+    "semanal": "Weekly",
+    "puntual": "One-time payment"
+  },
   "guests": {
     "title": "Guests",
     "register": "Register",
@@ -226,8 +241,16 @@
     "upload": "Upload",
     "contract_error": "Could not manage the contract",
     "departure_modal_title": "Register departure",
-    "departure_confirm": "Discharge",
-    "confirm_departure": "Mark actual departure for {{nombre}} {{apellidos}}?"
+    "departure_confirm": "Check out",
+    "confirm_departure": "Mark actual departure of {{nombre}} {{apellidos}}?",
+    "amount": "Amount",
+    "tariff": "Tariff",
+    "all_tariffs": "All tariffs",
+    "search_placeholder": "Search guest...",
+    "section_billing": "Billing",
+    "receipt_amount": "Amount per receipt (€)",
+    "daily_price": "Daily price (€)",
+    "billing_frequency": "Bill every"
   },
   "payments": {
     "title": "Payments",
@@ -251,6 +274,11 @@
     "type": "Type",
     "regular": "Regular",
     "extra": "Extra",
+    "parking": "Parking",
+    "shuttle": "Shuttle",
+    "puntual": "One-time payment",
+    "fianza": "Deposit",
+    "diaria": "Daily tariff",
     "all_types": "All types",
     "description": "Description",
     "desc_placeholder": "e.g. Extra payment for damages",
@@ -545,9 +573,18 @@
     "storage_title": "Storage",
     "storage_empty": "No items in storage",
     "add_to_storage": "Add item to storage",
+    "bulk_assign": "Assign items to rooms",
+    "bulk_title": "Assign items to a room",
+    "bulk_desc": "Check which catalog items are in the room and their quantity, all at once",
+    "bulk_save": "Save assignments",
     "move_to": "Move to",
     "to_room": "Room",
-    "to_zone": "Common zone"
+    "to_zone": "Common zone",
+    "view_locations": "Where is it",
+    "locations_title": "Where is {{name}}?",
+    "locations_desc": "Locations where this item is assigned",
+    "locations_empty": "This item is not assigned anywhere",
+    "total_label": "Total"
   },
   "user_roles": {
     "direccion": "director",

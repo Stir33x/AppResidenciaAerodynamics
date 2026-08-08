@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const { dailyAmount, dailyPeriodo } = require('../lib/billing');
 
 const router = Router();
 
@@ -48,7 +49,7 @@ router.get('/:id', requireRole('direccion', 'administracion'), async (req, res) 
 // POST /api/guests
 router.post('/', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { email, password, nombre, apellidos, telefono, habitacion, fecha_entrada, fecha_salida_prevista } = req.body;
+    const { email, password, nombre, apellidos, telefono, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, tipo_tarifa } = req.body;
     if (!email || !password || !nombre) {
       return res.status(400).json({ error: 'Email, password y nombre requeridos' });
     }
@@ -89,11 +90,30 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
     );
 
     const [guestResult] = await pool.query(
-      'INSERT INTO guests (profile_id, habitacion, fecha_entrada, fecha_salida_prevista) VALUES (?, ?, ?, ?)',
-      [profileResult.insertId, habitacion || '', fecha_entrada || null, fecha_salida_prevista || null]
+      'INSERT INTO guests (profile_id, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, tipo_tarifa) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [profileResult.insertId, habitacion || '', fecha_entrada || null, fecha_salida_prevista || null, cuota_mensual || 0, facturar_cada || '1', tipo_tarifa || 'cantidad']
     );
 
-    res.status(201).json({ id: guestResult.insertId, profile_id: profileResult.insertId });
+    // Tarifa diaria: una única factura = días de estancia × precio diario
+    const guestId = guestResult.insertId;
+    const amount = parseFloat(cuota_mensual);
+    if (tipo_tarifa === 'diaria' && fecha_entrada && fecha_salida_prevista && amount > 0) {
+      const importe = dailyAmount(fecha_entrada, fecha_salida_prevista, amount);
+      const periodo = dailyPeriodo(fecha_entrada, fecha_salida_prevista);
+      const vencimiento = new Date(new Date(fecha_salida_prevista).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const [existing] = await pool.query(
+        'SELECT id FROM pagos WHERE guest_id = ? AND periodo = ? AND estado != ?',
+        [guestId, periodo, 'anulado']
+      );
+      if (existing.length === 0) {
+        await pool.query(
+          "INSERT INTO pagos (guest_id, tipo, periodo, importe, fecha_vencimiento) VALUES (?, 'diaria', ?, ?, ?)",
+          [guestId, periodo, importe, vencimiento]
+        );
+      }
+    }
+
+    res.status(201).json({ id: guestId, profile_id: profileResult.insertId });
   } catch (err) {
     console.error(err);
     if (err.code === 'ER_DUP_ENTRY') {
@@ -106,7 +126,7 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
 // PUT /api/guests/:id
 router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, estado } = req.body;
+    const { habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, estado, cuota_mensual, facturar_cada, tipo_tarifa } = req.body;
 
     if (estado !== undefined && !['activo', 'baja', 'pendiente_salida'].includes(estado)) {
       return res.status(400).json({ error: 'Estado no válido' });
@@ -140,6 +160,19 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
 
     const fields = ['habitacion = COALESCE(?, habitacion)', 'fecha_entrada = COALESCE(?, fecha_entrada)', 'fecha_salida_prevista = COALESCE(?, fecha_salida_prevista)', 'fecha_salida_real = COALESCE(?, fecha_salida_real)', 'estado = COALESCE(?, estado)'];
     const params = [habitacion, fecha_entrada, fecha_salida_prevista, fecha_salida_real, estado];
+
+    if (cuota_mensual !== undefined) {
+      fields.push('cuota_mensual = ?');
+      params.push(cuota_mensual);
+    }
+    if (facturar_cada !== undefined) {
+      fields.push('facturar_cada = ?');
+      params.push(facturar_cada);
+    }
+    if (tipo_tarifa !== undefined) {
+      fields.push('tipo_tarifa = ?');
+      params.push(tipo_tarifa);
+    }
 
     params.push(req.params.id);
     await pool.query(`UPDATE guests SET ${fields.join(', ')} WHERE id = ?`, params);

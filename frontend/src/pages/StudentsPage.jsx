@@ -10,9 +10,11 @@ export default function StudentsPage() {
   const [rooms, setRooms] = useState([])
   const [courses, setCourses] = useState([])
   const [filterCurso, setFilterCurso] = useState('')
+  const [filterTarifa, setFilterTarifa] = useState('')
+  const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', cursos: [] })
+  const [form, setForm] = useState({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', tipo_tarifa: 'cantidad', cursos: [] })
   const [uploading, setUploading] = useState({ id: null })
   const [showDepartureModal, setShowDepartureModal] = useState(false)
   const [departureStudent, setDepartureStudent] = useState(null)
@@ -68,7 +70,7 @@ export default function StudentsPage() {
 
   const openCreate = async () => {
     setEditing(null)
-    setForm({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', cursos: [] })
+    setForm({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', tipo_tarifa: 'cantidad', cursos: [] })
     setSelectedInvItems({})
     loadRooms(null)
     try {
@@ -101,6 +103,7 @@ export default function StudentsPage() {
       fecha_salida_prevista: s.fecha_salida_prevista ? s.fecha_salida_prevista.slice(0, 10) : '',
       cuota_mensual: s.cuota_mensual || '',
       facturar_cada: s.facturar_cada || '1',
+      tipo_tarifa: s.tipo_tarifa || 'cantidad',
       cursos: (s.cursos || []).map((c) => c.id),
     }
     setForm(f)
@@ -139,7 +142,8 @@ export default function StudentsPage() {
             fecha_entrada: form.fecha_entrada || null,
             fecha_salida_prevista: form.fecha_salida_prevista || null,
             cuota_mensual: form.cuota_mensual ? parseFloat(form.cuota_mensual) : undefined,
-            facturar_cada: form.facturar_cada ? parseInt(form.facturar_cada) : undefined,
+            facturar_cada: form.facturar_cada || undefined,
+            tipo_tarifa: form.tipo_tarifa || undefined,
             cursos: form.cursos,
           }),
         })
@@ -209,9 +213,24 @@ export default function StudentsPage() {
     return <span className={`badge ${sm ? 'badge-sm' : ''} ${cls[estado] || ''}`}>{txt[estado] || estado}</span>
   }
 
-  const filteredStudents = filterCurso
-    ? students.filter((s) => (s.cursos || []).some((c) => c.id === parseInt(filterCurso)))
-    : students
+  const billingLabel = (f) => {
+    if (f == null || f === '') return '-'
+    const n = parseInt(f)
+    if (/^\d+$/.test(String(f)) && n > 1) return t('common.every_n_months', { n })
+    if (/^\d+$/.test(String(f))) return t('common.monthly')
+    return t(`billing.${f}`)
+  }
+
+  const tariffLabel = (tt) => (tt ? t(`tariff_types.${tt}`) : '-')
+
+  const filteredStudents = students.filter((s) => {
+    if (filterCurso && !(s.cursos || []).some((c) => c.id === parseInt(filterCurso))) return false
+    if (filterTarifa && s.tipo_tarifa !== filterTarifa) return false
+    const q = search.trim().toLowerCase()
+    if (!q) return true
+    const hay = [s.nombre, s.apellidos, s.email, s.telefono, s.habitacion].join(' ').toLowerCase()
+    return hay.includes(q)
+  })
 
   const cursoNames = (s) => (s.cursos || []).map((c) => c.nombre).join(', ')
 
@@ -280,9 +299,20 @@ export default function StudentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="page-title">{t('students.title')}</h1>
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-40">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+            <input
+              className="input input-sm input-bordered pl-9 w-44"
+              placeholder={t('students.search_placeholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           {courses.length > 0 && (
             <select
               className="select select-sm select-bordered"
@@ -295,6 +325,17 @@ export default function StudentsPage() {
               ))}
             </select>
           )}
+          <select
+            className="select select-sm select-bordered"
+            value={filterTarifa}
+            onChange={(e) => setFilterTarifa(e.target.value)}
+          >
+            <option value="">{t('students.all_tariffs')}</option>
+            <option value="cantidad">{t('tariff_types.cantidad')}</option>
+            <option value="mayor_9">{t('tariff_types.mayor_9')}</option>
+            <option value="menor_9">{t('tariff_types.menor_9')}</option>
+            <option value="diaria">{t('tariff_types.diaria')}</option>
+          </select>
           <button className="btn btn-primary" onClick={openCreate}>{t('students.register')}</button>
         </div>
       </div>
@@ -312,6 +353,7 @@ export default function StudentsPage() {
               <th>{t('students.status')}</th>
               <th className="text-right">{t('students.amount')}</th>
               <th>{t('students.every')}</th>
+              <th>{t('students.tariff')}</th>
               <th>{t('students.courses')}</th>
               <th>{t('students.departure')}</th>
               <th>{t('students.contract')}</th>
@@ -328,7 +370,8 @@ export default function StudentsPage() {
                 <td className="whitespace-nowrap">{s.fecha_salida_prevista ? new Date(s.fecha_salida_prevista).toLocaleDateString('es-ES') : '-'}</td>
                 <td>{statusBadge(s.estado)}</td>
                 <td className="text-right whitespace-nowrap font-mono">{parseFloat(s.cuota_mensual || 0).toFixed(2)}€</td>
-                <td>{s.facturar_cada > 1 ? t('common.every_n_months', { n: s.facturar_cada }) : t('common.monthly')}</td>
+                <td>{billingLabel(s.facturar_cada)}</td>
+                <td><span className="badge badge-soft badge-sm">{tariffLabel(s.tipo_tarifa)}</span></td>
                 <td>
                   {(s.cursos || []).length > 0 ? (
                     <div className="flex flex-wrap gap-1">
@@ -367,7 +410,7 @@ export default function StudentsPage() {
             ))}
             {filteredStudents.length === 0 && (
               <tr>
-                <td colSpan={12} className="text-center opacity-60 py-8">{t('students.empty')}</td>
+                <td colSpan={13} className="text-center opacity-60 py-8">{t('students.empty')}</td>
               </tr>
             )}
           </tbody>
@@ -422,7 +465,11 @@ export default function StudentsPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="opacity-50">{t('students.every')}:</span>
-                  <span>{s.facturar_cada > 1 ? t('common.every_n_months', { n: s.facturar_cada }) : t('common.monthly')}</span>
+                  <span>{billingLabel(s.facturar_cada)}</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="opacity-50">{t('students.tariff')}:</span>
+                  <span className="badge badge-soft badge-xs">{tariffLabel(s.tipo_tarifa)}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="opacity-50">{t('students.departure')}:</span>
@@ -597,22 +644,33 @@ export default function StudentsPage() {
                 <legend className="font-medium text-sm px-1 text-primary">{t('students.section_billing')}</legend>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="form-control">
-                    <label className="label"><span className="label-text">{t('students.receipt_amount')}</span></label>
+                    <label className="label"><span className="label-text">{t('students.tariff')}</span></label>
+                    <select className="select select-bordered" value={form.tipo_tarifa} onChange={(e) => setForm({ ...form, tipo_tarifa: e.target.value })}>
+                      <option value="cantidad">{t('tariff_types.cantidad')}</option>
+                      <option value="mayor_9">{t('tariff_types.mayor_9')}</option>
+                      <option value="menor_9">{t('tariff_types.menor_9')}</option>
+                      <option value="diaria">{t('tariff_types.diaria')}</option>
+                    </select>
+                  </div>
+                  <div className="form-control">
+                    <label className="label"><span className="label-text">{form.tipo_tarifa === 'diaria' ? t('students.daily_price') : t('students.receipt_amount')}</span></label>
                     <div className="join w-full">
                       <input type="number" step="0.01" className="input input-bordered join-item flex-1" value={form.cuota_mensual} onChange={(e) => setForm({ ...form, cuota_mensual: e.target.value })} placeholder="0.00" />
                       <span className="join-item bg-base-200 flex items-center px-3 text-sm opacity-60">€</span>
                     </div>
                   </div>
-                  <div className="form-control">
-                    <label className="label"><span className="label-text">{t('students.billing_frequency')}</span></label>
-                    <select className="select select-bordered" value={form.facturar_cada} onChange={(e) => setForm({ ...form, facturar_cada: e.target.value })}>
-                      <option value="1">{t('common.1_month')}</option>
-                      <option value="2">{t('common.2_months')}</option>
-                      <option value="3">{t('common.3_months')}</option>
-                      <option value="6">{t('common.6_months')}</option>
-                      <option value="12">{t('common.12_months')}</option>
-                    </select>
-                  </div>
+                </div>
+                <div className="form-control mt-3">
+                  <label className="label"><span className="label-text">{t('students.billing_frequency')}</span></label>
+                  <select className="select select-bordered" value={form.facturar_cada} onChange={(e) => setForm({ ...form, facturar_cada: e.target.value })}>
+                    <option value="1">{t('common.1_month')}</option>
+                    <option value="2">{t('common.2_months')}</option>
+                    <option value="3">{t('common.3_months')}</option>
+                    <option value="6">{t('common.6_months')}</option>
+                    <option value="12">{t('common.12_months')}</option>
+                    <option value="semanal">{t('billing.semanal')}</option>
+                    <option value="puntual">{t('billing.puntual')}</option>
+                  </select>
                 </div>
               </fieldset>
 

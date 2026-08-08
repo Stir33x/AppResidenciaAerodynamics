@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
-import RoomMap, { FLOOR_PLAN, WarningIcon } from '../components/RoomMap'
+import RoomMap, { FLOOR_PLAN, WarningIcon, ROOM_CATEGORY, ROOM_CATEGORY_LABEL } from '../components/RoomMap'
 
 // ---------------------------------------------------------------------------
 // ESTADO DE UNA HABITACIÓN
@@ -174,6 +174,42 @@ export default function RoomsPage() {
   const cleaningHoy = Boolean(selectedRoom?.limpieza_hoy ?? selectedRoom?.estado === 'limpieza')
   const cleaningCompletada = Boolean(selectedRoom?.limpieza_completada)
 
+  // ---------------------------------------------------------------------------
+  // PRÓXIMAS HABITACIONES LIBRES (por categoría: normal / terraza / superior / ...)
+  // ---------------------------------------------------------------------------
+  const ROOM_CATS = [
+    { key: 'todas', label: 'Todas' },
+    { key: 'estandar', label: 'Estándar' },
+    { key: 'estandar_terraza', label: 'Estándar con terraza' },
+    { key: 'superior', label: 'Superior' },
+    { key: 'superior_terraza', label: 'Superior con terraza' },
+  ]
+  const [nextCat, setNextCat] = useState('todas')
+
+  const roomsWithCategory = useMemo(
+    () =>
+      rooms
+        .map((r) => {
+          const n = parseInt(String(r.nombre).trim(), 10)
+          return Number.isNaN(n) ? null : { room: r, n, cat: ROOM_CATEGORY(n) }
+        })
+        .filter(Boolean),
+    [rooms]
+  )
+
+  const nextRooms = useMemo(() => {
+    const occupied = roomsWithCategory.filter((x) => x.room.occupied)
+    const list = nextCat === 'todas' ? occupied : occupied.filter((x) => x.cat === nextCat)
+    return [...list].sort((a, b) => {
+      const ad = a.room.checkout_date || ''
+      const bd = b.room.checkout_date || ''
+      if (ad && bd) return ad.localeCompare(bd)
+      if (ad) return -1
+      if (bd) return 1
+      return String(a.n).localeCompare(String(b.n))
+    })
+  }, [roomsWithCategory, nextCat])
+
   const tileClass = (room, n) => {
     if (!room) return 'bg-base-200 border-base-300 text-base-content/40 border-dashed'
     return STATUS_STYLES[getRoomStatus(room)]
@@ -234,6 +270,70 @@ export default function RoomsPage() {
         getBadge={tileBadge}
         getTitle={tileTitle}
       />
+
+      {/* PRÓXIMAS HABITACIONES LIBRES POR CATEGORÍA */}
+      <div className="card bg-base-100 border shadow-sm">
+        <div className="card-body p-4 gap-3">
+          <h2 className="text-lg font-bold">Próximas habitaciones libres</h2>
+          <div className="tabs tabs-bordered tabs-sm w-fit max-w-full overflow-x-auto">
+            {ROOM_CATS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                className={`tab ${nextCat === c.key ? 'tab-active' : ''}`}
+                onClick={() => setNextCat(c.key)}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          {nextRooms.length === 0 ? (
+            <p className="text-sm opacity-60 py-2">
+              No hay habitaciones ocupadas de esta categoría en este momento.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Habitación</th>
+                    <th>Categoría</th>
+                    <th>Se libera</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {nextRooms.slice(0, 12).map(({ room, n, cat }, idx) => (
+                    <tr key={room.id} className={idx === 0 ? 'font-semibold' : ''}>
+                      <td>
+                        {idx === 0 ? (
+                          <span className="badge badge-primary badge-sm">Próxima</span>
+                        ) : (
+                          <span className="opacity-50 text-xs">{idx + 1}</span>
+                        )}
+                      </td>
+                      <td>
+                        <button type="button" className="link link-hover" onClick={() => openRoom(room)}>
+                          Hab. {String(n).padStart(2, '0')}
+                        </button>
+                      </td>
+                      <td>{ROOM_CATEGORY_LABEL[cat]}</td>
+                      <td>{room.checkout_date ? fmt(room.checkout_date) : <span className="opacity-50">Sin fecha</span>}</td>
+                      <td>
+                        <span className={`badge badge-sm ${getRoomStatus(room) === 'ocupado' ? 'badge-info' : getRoomStatus(room) === 'limpieza' ? 'badge-warning' : 'badge-success'}`}>
+                          {getRoomStatus(room)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
 
       {rooms.length === 0 && (
         <p className="text-center opacity-60 py-8">{t('rooms.empty')}</p>
