@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useToast } from '../components/Toast'
+import { esParaElDia } from '../lib/horarios'
 
 const dias = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
 
@@ -508,7 +509,7 @@ export default function ConfigurationPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {dias.map((dia) => {
               const grupos = {}
-              horarios.filter((h) => h.dia_semana === dia).forEach((h) => {
+              horarios.filter((h) => esParaElDia(h, dia)).forEach((h) => {
                 if (!grupos[h.tipo]) grupos[h.tipo] = []
                 grupos[h.tipo].push(h)
               })

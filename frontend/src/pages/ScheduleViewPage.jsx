@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
-
-const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+import { DIAS as dias, agruparPorDia } from '../lib/horarios'
 
 function TipoBadge({ tipo, tipo_color }) {
   return (
@@ -24,18 +23,6 @@ export default function ScheduleViewPage() {
     const qs = filtroTipo ? `?tipo=${filtroTipo}` : ''
     fetchApi(`/horarios${qs}`).then(setHorarios).catch(() => {})
   }, [filtroTipo])
-
-  const agruparPorDia = (arr) => {
-    const grupos = {}
-    dias.forEach((d) => { grupos[d] = {} })
-    arr.forEach((h) => {
-      const dia = h.dia_semana && grupos[h.dia_semana] ? h.dia_semana : null
-      if (!dia) return
-      if (!grupos[dia][h.tipo]) grupos[dia][h.tipo] = []
-      grupos[dia][h.tipo].push(h)
-    })
-    return grupos
-  }
 
   const grupos = agruparPorDia(horarios)
   const tiposConItems = tipos.filter((tp) => horarios.some((h) => h.tipo === tp.nombre))

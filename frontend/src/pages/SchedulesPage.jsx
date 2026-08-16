@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
-
-const dias = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
+import { DIAS as dias, agruparPorDia } from '../lib/horarios'
 
 function TipoBadge({ nombre, color }) {
   return (
@@ -89,19 +88,6 @@ export default function SchedulesPage() {
     if (!await confirm(t('schedules.confirm_delete', { title: h.titulo }))) return
     try { await fetchApi(`/horarios/${h.id}`, { method: 'DELETE' }); load(); addToast(t('common.deleted'), 'success') }
     catch (err) { addToast(err.message, 'error') }
-  }
-
-  const noDayKey = t('schedules.no_day')
-  const agruparPorDia = (arr) => {
-    const grupos = {}
-    dias.forEach((d) => { grupos[d] = {} })
-    arr.forEach((h) => {
-      const dia = h.dia_semana && grupos[h.dia_semana] ? h.dia_semana : noDayKey
-      if (!grupos[dia]) grupos[dia] = {}
-      if (!grupos[dia][h.tipo]) grupos[dia][h.tipo] = []
-      grupos[dia][h.tipo].push(h)
-    })
-    return grupos
   }
 
   const grupos = agruparPorDia(horarios)
