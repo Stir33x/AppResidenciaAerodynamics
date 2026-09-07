@@ -54,6 +54,8 @@ const departureChecklistRoutes = require('./routes/departure-checklist');
 const registrationChecklistRoutes = require('./routes/registration-checklist');
 const uploadRoutes = require('./routes/upload');
 const menuRoutes = require('./routes/menu');
+const menuOrdersRoutes = require('./routes/menu-orders');
+const chatRoutes = require('./routes/chat');
 const cron = require('node-cron');
 const cronJobs = require('./cron');
 
@@ -139,6 +141,8 @@ app.use('/api/departure-checklist', departureChecklistRoutes);
 app.use('/api/registration-checklist', registrationChecklistRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/menu', menuRoutes);
+app.use('/api/menu-orders', menuOrdersRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.get('/api/stats', passport.authenticate('jwt', { session: false }), requireRole('direccion', 'administracion'), async (req, res) => {
   try {

@@ -194,7 +194,7 @@ export default function IncidentsPage() {
                   {user?.rol === 'estudiante' ? (
                     <select className="select select-bordered" value={form.habitacion} onChange={(e) => setForm({ ...form, habitacion: e.target.value })} required>
                       <option value="">{t('common.select')}</option>
-                      {user.habitacion && <option value={user.habitacion}>{t('incidents.my_room', { room: user.habitacion })}</option>}
+                      {user.habitacion && <option value={user.habitacion}>{t('incidents.my_room', { habitacion: user.habitacion })}</option>}
                       {commonZones.map((z) => <option key={z.id} value={z.nombre}>{z.nombre}</option>)}
                     </select>
                   ) : (
@@ -264,7 +264,7 @@ export default function IncidentsPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="font-bold text-lg">{t('incidents.manage_title')} #{editing.id}</h3>
+                <h3 className="font-bold text-lg">{t('incidents.manage_title', { id: editing.id })}</h3>
                 <p className="text-sm opacity-60">{t('incidents.manage_desc')}</p>
               </div>
             </div>

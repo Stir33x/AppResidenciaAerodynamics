@@ -333,7 +333,7 @@ function StudentDocumentsView({ email, tipoBadge }) {
       <h1 className="page-title">{t('documents.student_title')}</h1>
       <div className="card bg-base-100 border shadow-sm">
         <div className="card-body">
-          <h2 className="card-title">{t('documents.student_of', { name: `${myStudent.nombre} ${myStudent.apellidos}` })}</h2>
+          <h2 className="card-title">{t('documents.student_of', { nombre: myStudent.nombre, apellidos: myStudent.apellidos })}</h2>
           {myDocs.length === 0 ? (
             <p className="text-sm opacity-60">{t('documents.student_empty')}</p>
           ) : (

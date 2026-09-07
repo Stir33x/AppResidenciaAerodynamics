@@ -85,7 +85,7 @@ export default function SchedulesPage() {
   }
 
   const handleDelete = async (h) => {
-    if (!await confirm(t('schedules.confirm_delete', { title: h.titulo }))) return
+    if (!await confirm(t('schedules.confirm_delete', { titulo: h.titulo }))) return
     try { await fetchApi(`/horarios/${h.id}`, { method: 'DELETE' }); load(); addToast(t('common.deleted'), 'success') }
     catch (err) { addToast(err.message, 'error') }
   }

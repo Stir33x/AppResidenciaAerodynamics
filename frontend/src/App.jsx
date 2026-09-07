@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { ChatProvider } from './context/ChatContext'
 import Layout from './components/Layout'
 import { ToastProvider } from './components/Toast'
 import Login from './pages/Login'
@@ -20,6 +21,8 @@ import InventoryPage from './pages/InventoryPage'
 import ConfigurationPage from './pages/ConfigurationPage'
 import MenuPage from './pages/MenuPage'
 import MenuViewPage from './pages/MenuViewPage'
+import OrdersPage from './pages/OrdersPage'
+import ChatPage from './pages/ChatPage'
 
 function ProtectedRoute({ roles, children }) {
   const { user, loading } = useAuth()
@@ -33,27 +36,31 @@ export default function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/alumnos" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
-          <Route path="/huespedes" element={<ProtectedRoute><GuestsPage /></ProtectedRoute>} />
-          <Route path="/limpieza" element={<ProtectedRoute><CleaningPage /></ProtectedRoute>} />
-          <Route path="/limpieza-dashboard" element={<ProtectedRoute><CleaningDashboardPage /></ProtectedRoute>} />
-          <Route path="/incidencias" element={<ProtectedRoute><IncidentsPage /></ProtectedRoute>} />
-          <Route path="/horarios" element={<ProtectedRoute><SchedulesPage /></ProtectedRoute>} />
-          <Route path="/horario" element={<ProtectedRoute><ScheduleViewPage /></ProtectedRoute>} />
-          <Route path="/pagos" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-          <Route path="/habitaciones" element={<ProtectedRoute roles={['direccion', 'administracion']}><RoomsPage /></ProtectedRoute>} />
-          <Route path="/documentos" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
-          <Route path="/inventario" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
-          <Route path="/usuarios" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
-          <Route path="/configuracion" element={<ProtectedRoute><ConfigurationPage /></ProtectedRoute>} />
-          <Route path="/checklist-alta" element={<ProtectedRoute><AdminChecklistPage /></ProtectedRoute>} />
-          <Route path="/menu" element={<ProtectedRoute><MenuPage /></ProtectedRoute>} />
-          <Route path="/menu-view" element={<ProtectedRoute><MenuViewPage /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <ChatProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/alumnos" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
+            <Route path="/huespedes" element={<ProtectedRoute><GuestsPage /></ProtectedRoute>} />
+            <Route path="/limpieza" element={<ProtectedRoute><CleaningPage /></ProtectedRoute>} />
+            <Route path="/limpieza-dashboard" element={<ProtectedRoute><CleaningDashboardPage /></ProtectedRoute>} />
+            <Route path="/incidencias" element={<ProtectedRoute><IncidentsPage /></ProtectedRoute>} />
+            <Route path="/horarios" element={<ProtectedRoute><SchedulesPage /></ProtectedRoute>} />
+            <Route path="/horario" element={<ProtectedRoute><ScheduleViewPage /></ProtectedRoute>} />
+            <Route path="/pagos" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
+            <Route path="/habitaciones" element={<ProtectedRoute roles={['direccion', 'administracion']}><RoomsPage /></ProtectedRoute>} />
+            <Route path="/documentos" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
+            <Route path="/inventario" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+            <Route path="/usuarios" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
+            <Route path="/configuracion" element={<ProtectedRoute><ConfigurationPage /></ProtectedRoute>} />
+            <Route path="/checklist-alta" element={<ProtectedRoute><AdminChecklistPage /></ProtectedRoute>} />
+            <Route path="/menu" element={<ProtectedRoute><MenuPage /></ProtectedRoute>} />
+            <Route path="/menu-view" element={<ProtectedRoute><MenuViewPage /></ProtectedRoute>} />
+            <Route path="/pedidos" element={<ProtectedRoute roles={['estudiante', 'cocina', 'direccion']}><OrdersPage /></ProtectedRoute>} />
+            <Route path="/chat" element={<ProtectedRoute roles={['estudiante', 'invitado', 'staff', 'cocina', 'limpieza', 'direccion', 'administracion']}><ChatPage /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </ChatProvider>
       </ToastProvider>
     </BrowserRouter>
   )

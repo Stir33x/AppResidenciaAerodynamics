@@ -63,7 +63,7 @@ export default function UsersPage() {
   }
 
   const handleDelete = async (u) => {
-    if (!await confirm(t('users.confirm_delete', { name: `${u.nombre} ${u.apellidos}` }))) return
+    if (!await confirm(t('users.confirm_delete', { nombre: u.nombre, apellidos: u.apellidos }))) return
     try {
       await fetchApi(`/users/${u.id}`, { method: 'DELETE' })
       load()

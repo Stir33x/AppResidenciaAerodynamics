@@ -231,7 +231,7 @@ export default function ConfigurationPage() {
     } catch (err) { addToast(err.message, 'error') }
   }
   const deleteSched = async (h) => {
-    if (!await confirm(t('schedules.confirm_delete', { title: h.titulo }))) return
+    if (!await confirm(t('schedules.confirm_delete', { titulo: h.titulo }))) return
     try { await fetchApi(`/horarios/${h.id}`, { method: 'DELETE' }); loadSched(); addToast(t('common.deleted'), 'success') }
     catch (err) { addToast(err.message, 'error') }
   }
@@ -416,7 +416,7 @@ export default function ConfigurationPage() {
         </button>
         <button className={`tab ${tab === 'schedule_types' ? 'tab-active' : ''}`} onClick={() => setTab('schedule_types')}>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" /><path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" /></svg>
-          Categor\u00edas
+          Categorías
         </button>
         <button className={`tab ${tab === 'cleaning' ? 'tab-active' : ''}`} onClick={() => setTab('cleaning')}>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
@@ -697,9 +697,9 @@ export default function ConfigurationPage() {
       {tab === 'schedule_types' && (
         <div className="card bg-base-100 border shadow-sm">
           <div className="card-body">
-            <h3 className="font-medium mb-2">Categor\u00edas de horarios</h3>
+            <h3 className="font-medium mb-2">Categorías de horarios</h3>
             <form onSubmit={addHT} className="flex flex-col gap-3 mb-4">
-              <input className="input input-bordered" placeholder="Nombre de la categor\u00eda" value={newHTNombre} onChange={(e) => setNewHTNombre(e.target.value)} required />
+              <input className="input input-bordered" placeholder="Nombre de la categoría" value={newHTNombre} onChange={(e) => setNewHTNombre(e.target.value)} required />
               <div className="flex gap-2 items-end">
                 <div className="form-control flex-1">
                   <label className="label py-1"><span className="label-text">Color</span></label>
@@ -728,7 +728,7 @@ export default function ConfigurationPage() {
                   <button className="btn btn-xs btn-ghost text-error" onClick={() => deleteHT(tp.id, tp.nombre)}>{t('common.delete')}</button>
                 </div>
               ))}
-              {horarioTypes.length === 0 && <p className="text-sm opacity-60 text-center py-4">No hay categor\u00edas</p>}
+              {horarioTypes.length === 0 && <p className="text-sm opacity-60 text-center py-4">No hay categorías</p>}
             </div>
           </div>
         </div>
