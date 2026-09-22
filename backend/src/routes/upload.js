@@ -1,14 +1,39 @@
 const { Router } = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { authMiddleware } = require('../middleware/auth');
+const { verifyImage } = require('../middleware/verify-upload');
 const uploadImage = require('../middleware/upload-image');
 const { uploadDir } = uploadImage;
 
 const router = Router();
 router.use(authMiddleware);
 
-router.post('/image', uploadImage.single('imagen'), (req, res) => {
+const SIGN_TTL_MS = 5 * 60 * 1000;
+
+// Firma una URL de imagen sin incrustar el JWT (evita exponer el token
+// en el historial, logs y cabeceras Referer). El <img> usa esta URL firmada.
+router.get('/sign', (req, res) => {
+  try {
+    const p = String(req.query.path || '');
+    if (!p.startsWith('/uploads/images/')) {
+      return res.status(400).json({ error: 'Ruta no válida' });
+    }
+    const rel = p.replace(/^\/uploads\/images\//, '').replace(/\.\./g, '').split(/[\\/]+/).filter(Boolean).join('/');
+    if (!rel) {
+      return res.status(400).json({ error: 'Ruta no válida' });
+    }
+    const exp = Date.now() + SIGN_TTL_MS;
+    const sig = crypto.createHmac('sha256', process.env.JWT_SECRET).update(`${rel}:${exp}`).digest('hex');
+    res.json({ url: `/uploads/images/${rel}?exp=${exp}&sig=${sig}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
+router.post('/image', uploadImage.single('imagen'), verifyImage, (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No se ha enviado ninguna imagen' });
     const rel = path.relative(uploadDir, req.file.path).split(path.sep).join('/');

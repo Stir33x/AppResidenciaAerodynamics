@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
-import ImageViewer, { imageUrl } from '../components/ImageViewer'
+import ImageViewer from '../components/ImageViewer'
+import SecureImage from '../components/SecureImage'
 
 const tipos = ['urgente', 'normal', 'baja']
 const estados = ['reportada', 'en_curso', 'resuelta', 'cerrada']
@@ -148,7 +149,7 @@ export default function IncidentsPage() {
                 <td className="text-sm">{inc.asignado_nombre ? `${inc.asignado_nombre} ${inc.asignado_apellidos}` : '-'}</td>
                 <td>
                   {inc.imagen ? (
-                    <img src={imageUrl(inc.imagen)} alt="foto" className="w-12 h-12 object-cover rounded-lg cursor-pointer" onClick={() => setViewPhoto(inc.imagen)} />
+                    <SecureImage src={inc.imagen} alt="foto" className="w-12 h-12 object-cover rounded-lg cursor-pointer" onClick={() => setViewPhoto(inc.imagen)} />
                   ) : (
                     <span className="text-xs opacity-50">{t('incidents.no_photo')}</span>
                   )}
@@ -242,7 +243,7 @@ export default function IncidentsPage() {
                   {uploadingImg && <span className="loading loading-spinner loading-sm" />}
                 </div>
                 {form.imagen && (
-                  <img src={imageUrl(form.imagen)} alt="preview" className="mt-2 w-24 h-24 object-cover rounded-lg" />
+                  <SecureImage src={form.imagen} alt="preview" className="mt-2 w-24 h-24 object-cover rounded-lg" />
                 )}
               </div>
               <div className="modal-action">
@@ -284,7 +285,7 @@ export default function IncidentsPage() {
               {editing.imagen && (
                 <div className="mt-3">
                   <span className="font-medium opacity-70 text-xs">{t('incidents.photo')}</span>
-                  <img src={imageUrl(editing.imagen)} alt="foto" className="mt-1 w-full max-h-48 object-cover rounded-lg cursor-pointer" onClick={() => setViewPhoto(editing.imagen)} />
+                  <SecureImage src={editing.imagen} alt="foto" className="mt-1 w-full max-h-48 object-cover rounded-lg cursor-pointer" onClick={() => setViewPhoto(editing.imagen)} />
                 </div>
               )}
             </div>

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -27,7 +28,7 @@ if (!process.env.JWT_SECRET) {
   const fatal = 'FATAL: JWT_SECRET no está definido en .env';
   console.error(fatal);
   logError(fatal);
-  // NO hacer process.exit(1) en Passenger — mata la app y Passenger no sabe por qué
+  process.exit(1);
 }
 
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',');
@@ -46,6 +47,7 @@ const cleaningRoutes = require('./routes/cleaning');
 const commonZonesRoutes = require('./routes/common-zones');
 const documentTypesRoutes = require('./routes/document-types');
 const coursesRoutes = require('./routes/cursos');
+const flightloggerRoutes = require('./routes/flightlogger');
 const usersRoutes = require('./routes/users');
 const horariosRoutes = require('./routes/horarios');
 const horarioTypesRoutes = require('./routes/horario-types');
@@ -77,7 +79,7 @@ app.use(cors({
   origin: (origin, callback) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     console.warn(`CORS: origen no permitido: ${origin}`);
-    return callback(null, true);
+    return callback(null, false);
   },
   credentials: true,
 }));
@@ -89,6 +91,8 @@ app.use(passport.initialize());
 // ============================================
 // RATE LIMITING
 // ============================================
+// Limitador general DESHABILITADO a petición del usuario.
+// El único limitador activo es authLimiter, aplicado SOLO a POST /auth/login (ver routes/auth.js).
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -98,27 +102,42 @@ const generalLimiter = rateLimit({
 });
 //app.use('/api', generalLimiter);
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Demasiados intentos, inténtalo más tarde' },
-});
-
 // ============================================
 // UPLOADS — CORREGIDO: ahora con /api/ delante
 // ============================================
-// Imágenes públicas (accesibles sin auth, pero solo vía API)
-app.use('/api/uploads/images', (req, res, next) => {
+// Imágenes (requieren autenticación). Los <img> del navegador no pueden mandar
+// cabeceras, así que usamos URLs FIRMADAS con expiración (5 min) en lugar de
+// incrustar el JWT en la query string (evita filtrar el token en historial/logs/Referer).
+// La firma se genera con HMAC(JWT_SECRET) en /api/upload/sign.
+const verifySignedImage = (req, res, next) => {
+  const { exp, sig } = req.query;
+  if (!exp || !sig) return res.status(401).json({ error: 'No autorizado' });
+  const expNum = Number(exp);
+  if (!Number.isFinite(expNum) || Date.now() > expNum) return res.status(401).json({ error: 'Sesión expirada' });
+  // Normalizar igual que /upload/sign: el navegador envía la ruta codificada
+  // (espacios -> %20, acentos -> %C3%B3), pero la firma se hace sobre el rel decodificado.
+  let rawPath;
+  try {
+    rawPath = decodeURIComponent(req.path);
+  } catch {
+    rawPath = req.path;
+  }
+  const rel = rawPath.replace(/^\/+/, '').replace(/\.\./g, '').split(/[\\/]+/).filter(Boolean).join('/');
+  const expected = crypto.createHmac('sha256', process.env.JWT_SECRET).update(`${rel}:${exp}`).digest('hex');
+  if (sig !== expected) return res.status(401).json({ error: 'No autorizado' });
+  next();
+};
+app.use('/api/uploads/images', verifySignedImage, (req, res, next) => {
   res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
-}, express.static(path.resolve(__dirname, '..', 'uploads', 'images')));
+}, express.static(path.resolve(__dirname, '..', 'uploads', 'images'), {
+  dotfiles: 'deny',
+  index: false,
+}));
 
-// Documentos privados (requieren autenticación) — AJUSTA la ruta absoluta si los moviste fuera de www/
-const PRIVATE_UPLOADS_DIR = process.env.PRIVATE_UPLOADS_PATH
-  || path.resolve(__dirname, '..', 'uploads');
-app.use('/api/uploads', passport.authenticate('jwt', { session: false }), express.static(PRIVATE_UPLOADS_DIR));
+// Ya NO se sirve /api/uploads completo de forma estática (IDOR: cualquiera autenticado
+// podría leer los documentos de otros). Los documentos/contratos solo se descargan por
+// las rutas que comprueban titularidad (students.js / guests.js).
 
 // ============================================
 // RUTAS
@@ -133,6 +152,7 @@ app.use('/api/cleaning', cleaningRoutes);
 app.use('/api/common-zones', commonZonesRoutes);
 app.use('/api/document-types', documentTypesRoutes);
 app.use('/api/cursos', coursesRoutes);
+app.use('/api/flightlogger', flightloggerRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/horarios', horariosRoutes);
 app.use('/api/horario-types', horarioTypesRoutes);
@@ -191,7 +211,8 @@ app.use((err, req, res, next) => {
 
   const errorMsg = err.stack || err.message || String(err);
   console.error(errorMsg);
-  logError(`${req.method} ${req.url}\n${errorMsg}`);
+  // Nunca se loguea el query string completo (podría contener tokens/firmas)
+  logError(`${req.method} ${req.path}\n${errorMsg}`);
 
   res.status(500).json({ error: 'Error interno del servidor' });
 });

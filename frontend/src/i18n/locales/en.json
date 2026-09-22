@@ -197,7 +197,18 @@
     "pending_payments_title": "Pending payments — the student must settle before discharge:",
     "register": "Register",
     "registration_checklist": "Registration checklist",
-    "inventory_assignment": "Assign inventory items (storage)"
+    "inventory_assignment": "Assign inventory items (storage)",
+    "flightlogger_link": "Link",
+    "flightlogger_unlink": "Unlink",
+    "flightlogger_unlink_hint": "Remove the FlightLogger link",
+    "flightlogger_linked": "Linked with FlightLogger",
+    "flightlogger_unlinked": "FlightLogger link removed",
+    "flightlogger_filled": "Details filled from FlightLogger",
+    "flightlogger_link_desc": "Search for {{name}} in FlightLogger. Type 3 letters of the name or email.",
+    "flightlogger_search_placeholder": "Type 3 letters...",
+    "flightlogger_no_results": "No results in FlightLogger",
+    "flightlogger_profile": "Profile",
+    "flightlogger_no_url": "The FlightLogger profile URL is not configured"
   },
   "tariff_types": {
     "mayor_9": "More than 9 months",
@@ -485,7 +496,12 @@
     "occupied_until": "Occupied until",
     "next_available": "Next available",
     "show_soon": "Soon available",
-    "count": "{{n}} rooms"
+    "count": "{{n}} rooms",
+    "register_student": "Register student",
+    "register_student_in": "Register student · Room {{room}}",
+    "register_student_desc": "The student will be created with this room assigned automatically",
+    "register_next_student": "Reserve next student",
+    "register_next_hint": "The room is occupied by {{name}} until {{until}}. The new student checks in the following day; no overlap is allowed."
   },
   "documents": {
     "title": "Documents",
@@ -540,7 +556,7 @@
     "edit_title": "Edit user",
     "create_title": "New user",
     "surname": "Surname",
-    "new_password": "New password (leave empty to keep)",
+    "new_password": "New password",
     "password": "Password",
     "confirm_delete": "Delete {{nombre}} {{apellidos}}?",
     "create_desc": "Create a new system user",
@@ -550,7 +566,13 @@
     "email_placeholder": "e.g. user@aerodynamics.es",
     "phone_placeholder": "e.g. +34 600 000 000",
     "password_placeholder": "Min. 8 characters",
-    "password_edit_placeholder": "Leave empty to keep current"
+    "password_edit_placeholder": "Leave empty to keep current",
+    "search_placeholder": "Search by name, email or phone",
+    "all_roles": "All roles",
+    "role_locked": "A student's role cannot be changed",
+    "page_info": "Showing {{from}}–{{to}} of {{total}}",
+    "prev": "Previous",
+    "next": "Next"
   },
   "inventory": {
     "title": "Inventory",
@@ -650,6 +672,7 @@
     "section_name_placeholder": "e.g. Starters",
     "items_empty": "No dishes",
     "item_add": "+ Add dish",
+    "edit_item": "Edit dish",
     "item_name": "Dish",
     "item_name_placeholder": "e.g. Lentil soup",
     "item_desc_placeholder": "Dish description...",
@@ -725,6 +748,8 @@
     "you": "You",
     "empty": "No messages yet, write the first one.",
     "no_conversations": "No conversations yet",
+    "search_placeholder": "Search by name, surname or room...",
+    "search_empty": "No results for the search",
     "select_conversation": "Select a conversation on the left",
     "live_poll": "⏱ Real time"
   }

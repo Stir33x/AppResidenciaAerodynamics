@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useToast } from '../components/Toast'
+import FlightloggerAutocomplete from '../components/FlightloggerAutocomplete'
 
 export default function StudentsPage() {
   const { t } = useTranslation()
@@ -14,7 +15,7 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', tipo_tarifa: 'cantidad', cursos: [] })
+  const [form, setForm] = useState({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', tipo_tarifa: 'cantidad', cursos: [], flightlogger_id: '' })
   const [uploading, setUploading] = useState({ id: null })
   const [showDepartureModal, setShowDepartureModal] = useState(false)
   const [departureStudent, setDepartureStudent] = useState(null)
@@ -28,6 +29,10 @@ export default function StudentsPage() {
   const [regChecklistStates, setRegChecklistStates] = useState({})
   const [storageItems, setStorageItems] = useState([])
   const [selectedInvItems, setSelectedInvItems] = useState({})
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [linkStudent, setLinkStudent] = useState(null)
+  const [linkField, setLinkField] = useState('nombre')
+  const [linkQuery, setLinkQuery] = useState('')
 
   const load = async () => {
     const data = await fetchApi('/students')
@@ -70,7 +75,7 @@ export default function StudentsPage() {
 
   const openCreate = async () => {
     setEditing(null)
-    setForm({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', tipo_tarifa: 'cantidad', cursos: [] })
+    setForm({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', tipo_tarifa: 'cantidad', cursos: [], flightlogger_id: '' })
     setSelectedInvItems({})
     loadRooms(null)
     try {
@@ -129,6 +134,71 @@ export default function StudentsPage() {
       const has = prev.cursos.includes(cursoId)
       return { ...prev, cursos: has ? prev.cursos.filter((c) => c !== cursoId) : [...prev.cursos, cursoId] }
     })
+  }
+
+  // URL del perfil de un alumno en FlightLogger (FLIGHTLOGGER_USER_URL + id).
+  const flightloggerProfileUrl = (studentId) => {
+    if (!import.meta.env.FLIGHTLOGGER_USER_URL || !studentId) return null
+    return `${import.meta.env.FLIGHTLOGGER_USER_URL.replace(/\/+$/, '')}/${studentId}`
+  }
+
+  const openFlightloggerProfile = (student) => {
+    const url = flightloggerProfileUrl(student.flightlogger_id)
+    if (!url) {
+      addToast(t('students.flightlogger_no_url'), 'error')
+      return
+    }
+    window.open(url, '_blank')
+  }
+
+  // Al pulsar un resultado de FlightLogger en el formulario de alta,
+  // se autocompletan los datos personales y se guarda el flightlogger_id.
+  const handleFlightloggerSelect = (user) => {
+    setForm((prev) => ({
+      ...prev,
+      nombre: user.nombre || prev.nombre,
+      apellidos: user.apellidos || prev.apellidos,
+      email: user.email || prev.email,
+      telefono: user.telefono || prev.telefono,
+      flightlogger_id: user.flightlogger_id,
+    }))
+    addToast(t('students.flightlogger_filled'), 'success')
+  }
+
+  const openLinkModal = (s) => {
+    setLinkStudent(s)
+    setLinkField('nombre')
+    setLinkQuery('')
+    setShowLinkModal(true)
+  }
+
+  const handleLinkSelect = async (user) => {
+    if (!linkStudent) return
+    try {
+      await fetchApi(`/students/${linkStudent.id}/flightlogger`, {
+        method: 'PUT',
+        body: JSON.stringify({ flightlogger_id: user.flightlogger_id }),
+      })
+      setShowLinkModal(false)
+      setLinkStudent(null)
+      load()
+      addToast(t('students.flightlogger_linked'), 'success')
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }
+
+  const unlinkFlightlogger = async (s) => {
+    try {
+      await fetchApi(`/students/${s.id}/flightlogger`, {
+        method: 'PUT',
+        body: JSON.stringify({ flightlogger_id: null }),
+      })
+      load()
+      addToast(t('students.flightlogger_unlinked'), 'success')
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
   }
 
   const handleSave = async (e) => {
@@ -357,6 +427,7 @@ export default function StudentsPage() {
               <th>{t('students.courses')}</th>
               <th>{t('students.departure')}</th>
               <th>{t('students.contract')}</th>
+              <th>FlightLogger</th>
               <th>{t('students.actions')}</th>
             </tr>
           </thead>
@@ -402,6 +473,23 @@ export default function StudentsPage() {
                   )}
                 </td>
                 <td>
+                  {s.flightlogger_id ? (
+                    <div className="flex items-center gap-2">
+                      <button className="btn btn-xs btn-soft flex items-center gap-1" onClick={() => openFlightloggerProfile(s)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                        {t('students.flightlogger_profile')}
+                      </button>
+                      <button className="btn btn-xs btn-ghost" onClick={() => unlinkFlightlogger(s)} title={t('students.flightlogger_unlink_hint')}>
+                        {t('students.flightlogger_unlink')}
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="btn btn-xs btn-outline" onClick={() => openLinkModal(s)}>
+                      {t('students.flightlogger_link')}
+                    </button>
+                  )}
+                </td>
+                <td>
                   <div className="flex gap-2 items-center">
                   <button className="btn btn-sm btn-ghost" onClick={() => openEdit(s)}>{t('common.edit')}</button>
                   </div>
@@ -410,7 +498,7 @@ export default function StudentsPage() {
             ))}
             {filteredStudents.length === 0 && (
               <tr>
-                <td colSpan={13} className="text-center opacity-60 py-8">{t('students.empty')}</td>
+                <td colSpan={14} className="text-center opacity-60 py-8">{t('students.empty')}</td>
               </tr>
             )}
           </tbody>
@@ -485,6 +573,21 @@ export default function StudentsPage() {
                     {(s.cursos || []).map((c) => <span key={c.id} className="badge badge-soft badge-xs">{c.nombre}</span>)}
                   </span>
                 )}
+                <span className="flex items-center gap-1">
+                  <span className="opacity-50">FlightLogger:</span>
+                  {s.flightlogger_id ? (
+                    <button className="btn btn-xs btn-soft" onClick={() => openFlightloggerProfile(s)}>
+                      {t('students.flightlogger_profile')}
+                    </button>
+                  ) : (
+                    <span className="text-xs opacity-50">-</span>
+                  )}
+                </span>
+                {!s.flightlogger_id && (
+                  <button className="btn btn-xs btn-outline" onClick={() => openLinkModal(s)}>
+                    {t('students.flightlogger_link')}
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="opacity-50">{t('students.contract')}:</span>
@@ -542,7 +645,18 @@ export default function StudentsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="form-control">
                     <label className="label"><span className="label-text">{t('students.name')}</span></label>
-                    <input className="input input-bordered" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required disabled={!!editing} placeholder={t('students.name_placeholder')} />
+                    {!editing ? (
+                      <FlightloggerAutocomplete
+                        campo="nombre"
+                        value={form.nombre}
+                        onValueChange={(v) => setForm({ ...form, nombre: v })}
+                        onSelect={handleFlightloggerSelect}
+                        placeholder={t('students.name_placeholder')}
+                        required
+                      />
+                    ) : (
+                      <input className="input input-bordered" value={form.nombre} disabled placeholder={t('students.name_placeholder')} />
+                    )}
                   </div>
                   <div className="form-control">
                     <label className="label"><span className="label-text">{t('students.surname')}</span></label>
@@ -551,8 +665,31 @@ export default function StudentsPage() {
                 </div>
                 <div className="form-control mt-3">
                   <label className="label"><span className="label-text">{t('students.email')}</span></label>
-                  <input type="email" className="input input-bordered" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={!!editing} placeholder={t('students.email_placeholder')} />
+                  {!editing ? (
+                    <FlightloggerAutocomplete
+                      campo="email"
+                      value={form.email}
+                      onValueChange={(v) => setForm({ ...form, email: v })}
+                      onSelect={handleFlightloggerSelect}
+                      placeholder={t('students.email_placeholder')}
+                      type="email"
+                      required
+                    />
+                  ) : (
+                    <input type="email" className="input input-bordered" value={form.email} disabled required />
+                  )}
                 </div>
+                {form.flightlogger_id && (
+                  <div className="alert alert-success mt-3 py-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <div className="text-sm flex-1">
+                      {t('students.flightlogger_linked')} — ID {form.flightlogger_id}
+                    </div>
+                    <button type="button" className="btn btn-xs btn-ghost" onClick={() => setForm({ ...form, flightlogger_id: '' })}>
+                      {t('common.cancel')}
+                    </button>
+                  </div>
+                )}
                 {!editing && (
                   <div className="form-control mt-3">
                     <label className="label"><span className="label-text">{t('students.password')}</span></label>
@@ -681,6 +818,49 @@ export default function StudentsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </dialog>
+      )}
+
+      {showLinkModal && linkStudent && (
+        <dialog className="modal modal-open">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg mb-1">{t('students.flightlogger_link')}</h3>
+            <p className="text-sm opacity-60 mb-4">
+              {t('students.flightlogger_link_desc', { name: `${linkStudent.nombre} ${linkStudent.apellidos || ''}` })}
+            </p>
+
+            <div className="join w-full mb-3">
+              <button
+                type="button"
+                className={`btn join-item flex-1 ${linkField === 'nombre' ? 'btn-primary' : 'btn-soft'}`}
+                onClick={() => { setLinkField('nombre'); setLinkQuery('') }}
+              >
+                {t('students.name')}
+              </button>
+              <button
+                type="button"
+                className={`btn join-item flex-1 ${linkField === 'email' ? 'btn-primary' : 'btn-soft'}`}
+                onClick={() => { setLinkField('email'); setLinkQuery('') }}
+              >
+                {t('students.email')}
+              </button>
+            </div>
+
+            <FlightloggerAutocomplete
+              campo={linkField}
+              value={linkQuery}
+              onValueChange={setLinkQuery}
+              onSelect={handleLinkSelect}
+              placeholder={t('students.flightlogger_search_placeholder')}
+              type={linkField === 'email' ? 'email' : 'text'}
+            />
+
+            <div className="modal-action">
+              <button className="btn btn-soft" onClick={() => { setShowLinkModal(false); setLinkStudent(null) }}>
+                {t('common.cancel')}
+              </button>
+            </div>
           </div>
         </dialog>
       )}

@@ -164,8 +164,8 @@ router.put('/templates/:tid/sections/:sid/items/:iid', edit, async (req, res) =>
   try {
     const { nombre, descripcion, precio, orden } = req.body;
     await pool.query(
-      'UPDATE menu_template_items SET nombre = ?, descripcion = ?, precio = ?, orden = ? WHERE id = ? AND section_id = ?',
-      [nombre, descripcion || '', precio || 0, orden || 0, req.params.iid, req.params.sid]
+      'UPDATE menu_template_items SET nombre = ?, descripcion = ?, precio = ?, orden = COALESCE(?, orden) WHERE id = ? AND section_id = ?',
+      [nombre, descripcion || '', precio || 0, orden ?? null, req.params.iid, req.params.sid]
     );
     res.json({ ok: true });
   } catch (err) {

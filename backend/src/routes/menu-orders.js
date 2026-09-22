@@ -48,8 +48,8 @@ router.get('/', requireRole('cocina', 'direccion'), async (req, res) => {
   }
 });
 
-// GET /api/menu-orders/mine?fecha=YYYY-MM-DD  (SÓLO estudiante: sus propias reservas)
-router.get('/mine', requireRole('estudiante'), async (req, res) => {
+// GET /api/menu-orders/mine?fecha=YYYY-MM-DD  (estudiante e invitado: sus propias reservas)
+router.get('/mine', requireRole('estudiante', 'invitado'), async (req, res) => {
   try {
     const fecha = req.query.fecha || hoy();
     const [rows] = await pool.query(
@@ -64,8 +64,8 @@ router.get('/mine', requireRole('estudiante'), async (req, res) => {
   }
 });
 
-// POST /api/menu-orders  (SÓLO estudiante: reserva platos del menú)
-router.post('/', requireRole('estudiante'), async (req, res) => {
+// POST /api/menu-orders  (estudiante e invitado: reserva platos del menú)
+router.post('/', requireRole('estudiante', 'invitado'), async (req, res) => {
   try {
     const { item_id, fecha, cantidad, nota } = req.body;
     if (!item_id) {

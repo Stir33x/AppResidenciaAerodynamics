@@ -26,7 +26,7 @@ export default function MenuPage() {
   // Modals
   const [tmplModal, setTmplModal] = useState({ open: false, edit: null })
   const [sectionModal, setSectionModal] = useState({ open: false })
-  const [itemModal, setItemModal] = useState({ open: false, sectionId: null })
+  const [itemModal, setItemModal] = useState({ open: false, sectionId: null, item: null })
   const [assignModal, setAssignModal] = useState({ open: false, edit: null, tipo: 'semanal', dia_semana: null, fecha: null })
   const [confirm, setConfirm] = useState({ open: false, onConfirm: null, message: '' })
 
@@ -80,7 +80,7 @@ export default function MenuPage() {
         const { id } = await fetchApi('/menu/templates', { method: 'POST', body: JSON.stringify(body) })
         setSelectedTemplate({ id, ...body, sections: [] })
       }
-      addToast(t('common.saved'))
+      addToast(t('common.saved'), 'success')
       setTmplModal({ open: false, edit: null })
       fetchTemplates(); fetchAssignments()
     } catch { addToast(t('common.error_occurred'), 'error') }
@@ -90,7 +90,7 @@ export default function MenuPage() {
     setConfirm({ open: true, message: t('menu.confirm_delete_template', { name }), onConfirm: async () => {
       try {
         await fetchApi(`/menu/templates/${id}`, { method: 'DELETE' })
-        addToast(t('common.deleted'))
+        addToast(t('common.deleted'), 'success')
         if (selectedTemplate?.id === id) setSelectedTemplate(null)
         fetchTemplates(); fetchAssignments()
       } catch { addToast(t('common.error_occurred'), 'error') }
@@ -105,7 +105,7 @@ export default function MenuPage() {
     const body = { nombre: fd.get('nombre') }
     try {
       await fetchApi(`/menu/templates/${selectedTemplate.id}/sections`, { method: 'POST', body: JSON.stringify(body) })
-      addToast(t('common.saved'))
+      addToast(t('common.saved'), 'success')
       setSectionModal({ open: false })
       fetchTemplateDetail(selectedTemplate.id)
     } catch { addToast(t('common.error_occurred'), 'error') }
@@ -115,7 +115,7 @@ export default function MenuPage() {
     setConfirm({ open: true, message: t('menu.confirm_delete_section', { name }), onConfirm: async () => {
       try {
         await fetchApi(`/menu/templates/${selectedTemplate.id}/sections/${sid}`, { method: 'DELETE' })
-        addToast(t('common.deleted'))
+        addToast(t('common.deleted'), 'success')
         fetchTemplateDetail(selectedTemplate.id)
       } catch { addToast(t('common.error_occurred'), 'error') }
       setConfirm({ open: false })
@@ -128,9 +128,13 @@ export default function MenuPage() {
     const fd = new FormData(e.target)
     const body = { nombre: fd.get('nombre'), descripcion: fd.get('descripcion'), precio: parseFloat(fd.get('precio')) || 0 }
     try {
-      await fetchApi(`/menu/templates/${selectedTemplate.id}/sections/${itemModal.sectionId}/items`, { method: 'POST', body: JSON.stringify(body) })
-      addToast(t('common.saved'))
-      setItemModal({ open: false, sectionId: null })
+      if (itemModal.item) {
+        await fetchApi(`/menu/templates/${selectedTemplate.id}/sections/${itemModal.sectionId}/items/${itemModal.item.id}`, { method: 'PUT', body: JSON.stringify(body) })
+      } else {
+        await fetchApi(`/menu/templates/${selectedTemplate.id}/sections/${itemModal.sectionId}/items`, { method: 'POST', body: JSON.stringify(body) })
+      }
+      addToast(t('common.saved'), 'success')
+      setItemModal({ open: false, sectionId: null, item: null })
       fetchTemplateDetail(selectedTemplate.id)
     } catch { addToast(t('common.error_occurred'), 'error') }
   }
@@ -142,7 +146,7 @@ export default function MenuPage() {
     setConfirm({ open: true, message: t('menu.confirm_delete_item', { name: item?.nombre }), onConfirm: async () => {
       try {
         await fetchApi(`/menu/templates/${selectedTemplate.id}/sections/${sec.id}/items/${iid}`, { method: 'DELETE' })
-        addToast(t('common.deleted'))
+        addToast(t('common.deleted'), 'success')
         fetchTemplateDetail(selectedTemplate.id)
       } catch { addToast(t('common.error_occurred'), 'error') }
       setConfirm({ open: false })
@@ -177,7 +181,7 @@ export default function MenuPage() {
       } else {
         await fetchApi('/menu/assignments', { method: 'POST', body: JSON.stringify(body) })
       }
-      addToast(t('common.saved'))
+      addToast(t('common.saved'), 'success')
       setAssignModal({ open: false, edit: null })
       fetchAssignments()
       if (tab === 'view') fetchEffective(viewDate)
@@ -190,7 +194,7 @@ export default function MenuPage() {
     setConfirm({ open: true, message: t('menu.confirm_delete_assignment'), onConfirm: async () => {
       try {
         await fetchApi(`/menu/assignments/${id}`, { method: 'DELETE' })
-        addToast(t('common.deleted'))
+        addToast(t('common.deleted'), 'success')
         fetchAssignments()
         if (tab === 'view') fetchEffective(viewDate)
       } catch { addToast(t('common.error_occurred'), 'error') }
@@ -256,7 +260,7 @@ export default function MenuPage() {
                 {templates.map((tpl) => (
                   <button
                     key={tpl.id}
-                    onClick={() => setSelectedTemplate(tpl)}
+                    onClick={() => fetchTemplateDetail(tpl.id)}
                     className={`w-full text-left p-3 transition-colors hover:bg-base-200 ${
                       selectedTemplate?.id === tpl.id ? 'bg-primary/5 border-l-2 border-l-primary' : ''
                     }`}
@@ -352,6 +356,9 @@ export default function MenuPage() {
                                 </div>
                                 {isEditable && (
                                   <div className="flex gap-1 shrink-0">
+                                    <button className="btn btn-ghost btn-xs" onClick={() => setItemModal({ open: true, sectionId: sec.id, item })}>
+                                      {t('common.edit')}
+                                    </button>
                                     <button className="btn btn-ghost btn-xs" onClick={() => openAllergenModal(item)} title={t('menu.allergens')}>
                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
@@ -603,24 +610,27 @@ export default function MenuPage() {
 
       {/* Item modal */}
       {itemModal.open && (
-        <dialog className="modal modal-open" onClick={() => setItemModal({ open: false, sectionId: null })}>
+        <dialog className="modal modal-open" onClick={() => setItemModal({ open: false, sectionId: null, item: null })}>
           <div className="modal-box max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-4">{t('menu.item_add')}</h3>
+            <h3 className="font-bold text-lg mb-4">{itemModal.item ? t('menu.edit_item') : t('menu.item_add')}</h3>
             <form onSubmit={saveItem} className="space-y-3">
               <div>
                 <label className="label-text text-sm">{t('menu.item_name')}</label>
-                <input name="nombre" required className="input input-bordered w-full mt-1" placeholder={t('menu.item_name_placeholder')} />
+                <input name="nombre" required className="input input-bordered w-full mt-1" placeholder={t('menu.item_name_placeholder')}
+                  defaultValue={itemModal.item?.nombre} />
               </div>
               <div>
                 <label className="label-text text-sm">{t('menu.description')}</label>
-                <textarea name="descripcion" className="textarea textarea-bordered w-full mt-1" rows={2} placeholder={t('menu.item_desc_placeholder')} />
+                <textarea name="descripcion" className="textarea textarea-bordered w-full mt-1" rows={2} placeholder={t('menu.item_desc_placeholder')}
+                  defaultValue={itemModal.item?.descripcion} />
               </div>
               <div>
                 <label className="label-text text-sm">{t('menu.item_price')}</label>
-                <input name="precio" type="number" step="0.01" min="0" className="input input-bordered w-full mt-1" placeholder={t('menu.price_placeholder')} />
+                <input name="precio" type="number" step="0.01" min="0" className="input input-bordered w-full mt-1" placeholder={t('menu.price_placeholder')}
+                  defaultValue={itemModal.item?.precio} />
               </div>
               <div className="modal-action">
-                <button type="button" className="btn btn-ghost" onClick={() => setItemModal({ open: false, sectionId: null })}>{t('common.cancel')}</button>
+                <button type="button" className="btn btn-ghost" onClick={() => setItemModal({ open: false, sectionId: null, item: null })}>{t('common.cancel')}</button>
                 <button type="submit" className="btn btn-primary">{t('common.save')}</button>
               </div>
             </form>

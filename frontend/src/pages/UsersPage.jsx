@@ -4,7 +4,9 @@ import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
 
-const roles = ['direccion', 'administracion', 'limpieza']
+const roles = ['direccion', 'administracion', 'limpieza', 'staff', 'cocina']
+const PAGE_SIZE = 10
+const LOCKED_ROLES = ['estudiante']
 
 export default function UsersPage() {
   const { t } = useTranslation()
@@ -14,6 +16,9 @@ export default function UsersPage() {
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({ email: '', password: '', nombre: '', apellidos: '', telefono: '', rol: 'limpieza' })
+  const [search, setSearch] = useState('')
+  const [filterRol, setFilterRol] = useState('')
+  const [page, setPage] = useState(1)
 
   const load = async () => {
     const data = await fetchApi('/users')
@@ -72,8 +77,31 @@ export default function UsersPage() {
   }
 
   const rolBadge = (r) => {
-    const cls = { direccion: 'badge-neutral', administracion: 'badge-info', limpieza: 'badge-warning', estudiante: 'badge-soft' }
+    const cls = { direccion: 'badge-neutral', administracion: 'badge-info', limpieza: 'badge-warning', staff: 'badge-primary', cocina: 'badge-success', invitado: 'badge-warning', estudiante: 'badge-soft' }
     return <span className={`badge ${cls[r] || ''}`}>{t('user_roles.' + r)}</span>
+  }
+
+  const q = search.trim().toLowerCase()
+  const filteredUsers = users.filter((u) => {
+    if (filterRol && u.rol !== filterRol) return false
+    if (!q) return true
+    return [u.nombre, u.apellidos, u.email, u.telefono].join(' ').toLowerCase().includes(q)
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pagedUsers = filteredUsers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  const goSearch = (value) => { setSearch(value); setPage(1) }
+  const goFilter = (value) => { setFilterRol(value); setPage(1) }
+
+  const handleRolChange = (e) => {
+    const value = e.target.value
+    if (editing && LOCKED_ROLES.includes(editing.rol) && value !== editing.rol) {
+      addToast(t('users.role_locked'), 'error')
+      return
+    }
+    setForm({ ...form, rol: value })
   }
 
   return (
@@ -81,6 +109,26 @@ export default function UsersPage() {
       <div className="flex items-center justify-between">
         <h1 className="page-title">{t('users.title')}</h1>
         <button className="btn btn-primary" onClick={openCreate}>{t('users.new')}</button>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-40">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+          </svg>
+          <input
+            className="input input-sm input-bordered pl-9 w-64"
+            placeholder={t('users.search_placeholder')}
+            value={search}
+            onChange={(e) => goSearch(e.target.value)}
+          />
+        </div>
+        <select className="select select-sm select-bordered" value={filterRol} onChange={(e) => goFilter(e.target.value)}>
+          <option value="">{t('users.all_roles')}</option>
+          {roles.map((r) => <option key={r} value={r}>{t('user_roles.' + r)}</option>)}
+          <option value="estudiante">{t('user_roles.estudiante')}</option>
+          <option value="invitado">{t('user_roles.invitado')}</option>
+        </select>
       </div>
 
       <div className="overflow-x-auto">
@@ -96,7 +144,7 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
+            {pagedUsers.map((u) => (
               <tr key={u.id} className={u.id === user?.id ? 'bg-base-300' : ''}>
                 <td>{u.nombre} {u.apellidos} {u.id === user?.id && <span className="badge badge-xs badge-soft">{t('users.you_badge')}</span>}</td>
                 <td>{u.email}</td>
@@ -111,11 +159,21 @@ export default function UsersPage() {
                 </td>
               </tr>
             ))}
-            {users.length === 0 && (
+            {pagedUsers.length === 0 && (
               <tr><td colSpan={6} className="text-center opacity-60 py-8">{t('users.empty')}</td></tr>
             )}
           </tbody>
         </table>
+
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm opacity-60">
+            {t('users.page_info', { from: filteredUsers.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1, to: Math.min(currentPage * PAGE_SIZE, filteredUsers.length), total: filteredUsers.length })}
+          </p>
+          <div className="join">
+            <button className="btn btn-sm join-item" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>{t('users.prev')}</button>
+            <button className="btn btn-sm join-item" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>{t('users.next')}</button>
+          </div>
+        </div>
       </div>
 
       {showModal && (
@@ -132,36 +190,40 @@ export default function UsersPage() {
                 <p className="text-sm opacity-60">{editing ? t('users.edit_desc') : t('users.create_desc')}</p>
               </div>
             </div>
-            <form onSubmit={handleSave} className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSave} className="flex flex-col gap-4 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="form-control">
-                  <label className="label"><span className="label-text">{t('users.name')}</span></label>
-                  <input className="input input-bordered" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required placeholder={t('users.name_placeholder')} />
+                  <label className="label px-1 py-0 pb-1"><span className="label-text font-medium">{t('users.name')}</span></label>
+                  <input className="input input-bordered w-full" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required placeholder={t('users.name_placeholder')} />
                 </div>
                 <div className="form-control">
-                  <label className="label"><span className="label-text">{t('users.surname')}</span></label>
-                  <input className="input input-bordered" value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} placeholder={t('users.surname_placeholder')} />
-                </div>
-              </div>
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('users.email')}</span></label>
-                <input type="email" className="input input-bordered" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={!!editing} placeholder={t('users.email_placeholder')} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="form-control">
-                  <label className="label"><span className="label-text">{editing ? t('users.new_password') : t('users.password')}</span></label>
-                  <input type="password" className="input input-bordered" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editing} placeholder={editing ? t('users.password_edit_placeholder') : t('users.password_placeholder')} />
+                  <label className="label px-1 py-0 pb-1"><span className="label-text font-medium">{t('users.surname')}</span></label>
+                  <input className="input input-bordered w-full" value={form.apellidos} onChange={(e) => setForm({ ...form, apellidos: e.target.value })} placeholder={t('users.surname_placeholder')} />
                 </div>
                 <div className="form-control">
-                  <label className="label"><span className="label-text">{t('users.phone')}</span></label>
-                  <input className="input input-bordered" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} placeholder={t('users.phone_placeholder')} />
+                  <label className="label px-1 py-0 pb-1"><span className="label-text font-medium">{t('users.email')}</span></label>
+                  <input type="email" className="input input-bordered w-full" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={!!editing} placeholder={t('users.email_placeholder')} />
                 </div>
-              </div>
-              <div className="form-control">
-                <label className="label"><span className="label-text">{t('users.role')}</span></label>
-                <select className="select select-bordered" value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })}>
-                  {roles.map((r) => <option key={r} value={r}>{t('user_roles.' + r)}</option>)}
-                </select>
+                <div className="form-control">
+                  <label className="label px-1 py-0 pb-1"><span className="label-text font-medium">{t('users.phone')}</span></label>
+                  <input className="input input-bordered w-full" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} placeholder={t('users.phone_placeholder')} />
+                </div>
+                <div className="form-control">
+                  <label className="label px-1 py-0 pb-1"><span className="label-text font-medium">{editing ? t('users.new_password') : t('users.password')}</span></label>
+                  <input type="password" className="input input-bordered w-full" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editing} placeholder={editing ? t('users.password_edit_placeholder') : t('users.password_placeholder')} />
+                </div>
+                <div className="form-control">
+                  <label className="label px-1 py-0 pb-1"><span className="label-text font-medium">{t('users.role')}</span></label>
+                  <select className="select select-bordered w-full" value={form.rol} onChange={handleRolChange} disabled={!!editing && LOCKED_ROLES.includes(editing.rol)}>
+                    {editing && LOCKED_ROLES.includes(editing.rol) && (
+                      <option value={editing.rol}>{t('user_roles.' + editing.rol)}</option>
+                    )}
+                    {roles.map((r) => <option key={r} value={r}>{t('user_roles.' + r)}</option>)}
+                  </select>
+                  {editing && LOCKED_ROLES.includes(editing.rol) && (
+                    <p className="text-xs opacity-60 mt-1 px-1">{t('users.role_locked')}</p>
+                  )}
+                </div>
               </div>
               <div className="modal-action">
                 <button type="button" className="btn btn-soft" onClick={() => setShowModal(false)}>{t('common.cancel')}</button>

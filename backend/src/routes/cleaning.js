@@ -93,6 +93,16 @@ router.get('/today', async (req, res) => {
     const hoy = diasSemana[new Date().getDay()];
     const hoyStr = dateOnly(new Date());
 
+    const isStaff = ['direccion', 'administracion', 'limpieza'].includes(req.user.rol);
+
+    // Los estudiantes/invitados solo pueden ver los bloques donde está SU habitación,
+    // y nunca las ausencias ni los datos de otros estudiantes.
+    let myRoom = null;
+    if (!isStaff) {
+      const [students] = await pool.query('SELECT habitacion FROM students WHERE profile_id = ?', [req.user.id]);
+      myRoom = students.length > 0 ? students[0].habitacion : null;
+    }
+
     const [blocks] = await pool.query(
       'SELECT * FROM cleaning_blocks WHERE dia_semana = ? ORDER BY hora_inicio',
       [hoy]
@@ -105,10 +115,21 @@ router.get('/today', async (req, res) => {
         LEFT JOIN profiles p ON p.id = cbr.completada_por
         WHERE cbr.block_id = ?
       `, [block.id]);
-      block.rooms = rooms;
 
-      // Ausencias de estudiantes en esas habitaciones hoy
+      // Estudiantes/invitados: SOLO ven su propia habitación y sin datos de otros
+      if (!isStaff) {
+        block.rooms = rooms.filter((r) => myRoom !== null && r.room_name === myRoom).map((r) => {
+          r.absences = [];
+          r.sessions = [];
+          r.completada_hoy = dateOnly(r.fecha_completada) === hoyStr ? 1 : 0;
+          return r;
+        });
+        continue;
+      }
+
+      block.rooms = rooms;
       for (const room of rooms) {
+        // Ausencias de estudiantes en esas habitaciones hoy
         const [absences] = await pool.query(`
           SELECT sa.hora_inicio, sa.hora_fin, s.habitacion, pr.nombre
           FROM student_absences sa

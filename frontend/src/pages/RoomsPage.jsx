@@ -2,6 +2,8 @@
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../components/Toast'
+import FlightloggerAutocomplete from '../components/FlightloggerAutocomplete'
 import RoomMap, { FLOOR_PLAN, WarningIcon, ROOM_CATEGORY, ROOM_CATEGORY_LABEL } from '../components/RoomMap'
 
 // ---------------------------------------------------------------------------
@@ -90,12 +92,19 @@ function Legend() {
 export default function RoomsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const { addToast } = useToast()
   const canDelete = user?.rol === 'direccion'
+  const canRegister = ['direccion', 'administracion'].includes(user?.rol)
   const [rooms, setRooms] = useState([])
   const [newRoom, setNewRoom] = useState('')
   const [error, setError] = useState('')
   const [selectedRoom, setSelectedRoom] = useState(null)
   const dialogRef = useRef(null)
+  const [showStudentModal, setShowStudentModal] = useState(false)
+  const [studentRoom, setStudentRoom] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [courses, setCourses] = useState([])
+  const [sform, setSform] = useState({ email: '', password: '', nombre: '', apellidos: '', telefono: '', habitacion: '', fecha_entrada: '', fecha_salida_prevista: '', cuota_mensual: '', facturar_cada: '1', tipo_tarifa: 'cantidad', cursos: [], flightlogger_id: '' })
 
   const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString('es-ES') : '-')
 
@@ -168,6 +177,71 @@ export default function RoomsPage() {
   const openRoom = (room) => {
     setSelectedRoom(room)
     dialogRef.current?.showModal()
+  }
+
+  const openStudentModal = async (room) => {
+    setStudentRoom(room)
+    dialogRef.current?.close()
+    const hoy = new Date()
+    const getDateStr = (d) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const dia = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${dia}`
+    }
+    let entrada = getDateStr(hoy)
+    // Si la habitación está ocupada y tiene fecha de salida,
+    // la entrada del nuevo alumno se fija para el día siguiente.
+    if (room.checkout_date) {
+      const salida = new Date(`${room.checkout_date}T00:00:00`)
+      salida.setDate(salida.getDate() + 1)
+      entrada = getDateStr(salida)
+    }
+    setSform((prev) => ({ ...prev, habitacion: room.nombre, fecha_entrada: entrada, fecha_salida_prevista: '' }))
+    setSaving(false)
+    try {
+      const data = await fetchApi('/cursos')
+      setCourses(data)
+    } catch {
+      setCourses([])
+    }
+    setShowStudentModal(true)
+  }
+
+  const handleFlightloggerSelect = (user) => {
+    setSform((prev) => ({
+      ...prev,
+      nombre: user.nombre || prev.nombre,
+      apellidos: user.apellidos || prev.apellidos,
+      email: user.email || prev.email,
+      telefono: user.telefono || prev.telefono,
+      flightlogger_id: user.flightlogger_id,
+    }))
+    addToast(t('students.flightlogger_filled'), 'success')
+  }
+
+  const handleStudentSave = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await fetchApi('/students', {
+        method: 'POST',
+        body: JSON.stringify(sform),
+      })
+      setShowStudentModal(false)
+      load()
+      addToast(t('students.register') + ' ✓', 'success')
+    } catch (err) {
+      addToast(err.message, 'error')
+      setSaving(false)
+    }
+  }
+
+  const toggleCurso = (cursoId) => {
+    setSform((prev) => {
+      const has = prev.cursos.includes(cursoId)
+      return { ...prev, cursos: has ? prev.cursos.filter((c) => c !== cursoId) : [...prev.cursos, cursoId] }
+    })
   }
 
   const occupant = getOccupant(selectedRoom)
@@ -446,7 +520,25 @@ export default function RoomsPage() {
                 {t('rooms.next_available')}: <strong>{fmt(selectedRoom.next_available_date)}</strong>
               </div>
 
-              <div className="modal-action">
+              <div className="modal-action flex-wrap">
+                {canRegister && (
+                  (!occupant && getRoomStatus(selectedRoom) !== 'ocupado' && (
+                    <button className="btn btn-primary btn-sm" onClick={() => openStudentModal(selectedRoom)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                      </svg>
+                      {t('rooms.register_student')}
+                    </button>
+                  )) ||
+                  (occupant && selectedRoom.checkout_date && (
+                    <button className="btn btn-primary btn-sm whitespace-normal h-auto" onClick={() => openStudentModal(selectedRoom)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 shrink-0">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                      </svg>
+                      {t('rooms.register_next_student')}
+                    </button>
+                  ))
+                )}
                 {canDelete && (
                   <button className="btn btn-soft btn-error btn-sm" onClick={() => deleteRoom(selectedRoom.id)}>
                     {t('rooms.delete')}
@@ -463,6 +555,150 @@ export default function RoomsPage() {
           <button>close</button>
         </form>
       </dialog>
+
+      {/* MODAL DE REGISTRO DE ALUMNO EN LA HABITACIÓN */}
+      {showStudentModal && studentRoom && (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-lg">
+            <h3 className="font-bold text-lg mb-1">
+              {t('rooms.register_student_in', { room: studentRoom.nombre })}
+            </h3>
+            <p className="text-sm opacity-60 mb-4">{t('rooms.register_student_desc')}</p>
+
+            {getOccupant(studentRoom) && studentRoom.checkout_date && (
+              <div className="alert alert-warning text-sm mb-4 py-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 shrink-0">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+                <span>{t('rooms.register_next_hint', { name: getOccupant(studentRoom).name, until: fmt(studentRoom.checkout_date) })}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleStudentSave} className="flex flex-col gap-4">
+              {sform.flightlogger_id && (
+                <div className="alert alert-success py-2">
+                  <div className="text-sm flex-1">
+                    {t('students.flightlogger_linked')} — ID {sform.flightlogger_id}
+                  </div>
+                  <button type="button" className="btn btn-xs btn-ghost" onClick={() => setSform((prev) => ({ ...prev, flightlogger_id: '' }))}>
+                    {t('common.cancel')}
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.name')}</span></label>
+                  <FlightloggerAutocomplete
+                    campo="nombre"
+                    value={sform.nombre}
+                    onValueChange={(v) => setSform((prev) => ({ ...prev, nombre: v }))}
+                    onSelect={handleFlightloggerSelect}
+                    placeholder={t('students.name_placeholder')}
+                    required
+                  />
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.surname')}</span></label>
+                  <input className="input input-bordered w-full" value={sform.apellidos} onChange={(e) => setSform((prev) => ({ ...prev, apellidos: e.target.value }))} placeholder={t('students.surname_placeholder')} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.email')}</span></label>
+                  <FlightloggerAutocomplete
+                    campo="email"
+                    value={sform.email}
+                    onValueChange={(v) => setSform((prev) => ({ ...prev, email: v }))}
+                    onSelect={handleFlightloggerSelect}
+                    placeholder={t('students.email_placeholder')}
+                    type="email"
+                    required
+                  />
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.password')}</span></label>
+                  <input type="password" className="input input-bordered w-full" value={sform.password} onChange={(e) => setSform((prev) => ({ ...prev, password: e.target.value }))} required placeholder={t('students.password_placeholder')} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.phone')}</span></label>
+                  <input className="input input-bordered w-full" value={sform.telefono} onChange={(e) => setSform((prev) => ({ ...prev, telefono: e.target.value }))} placeholder={t('students.phone_placeholder')} />
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.room')}</span></label>
+                  <input className="input input-bordered w-full" value={sform.habitacion} disabled />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.entry_date')}</span></label>
+                  <input type="date" className="input input-bordered w-full" value={sform.fecha_entrada} onChange={(e) => setSform((prev) => ({ ...prev, fecha_entrada: e.target.value }))} />
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.exit_date')}</span></label>
+                  <input type="date" className="input input-bordered w-full" value={sform.fecha_salida_prevista} onChange={(e) => setSform((prev) => ({ ...prev, fecha_salida_prevista: e.target.value }))} />
+                </div>
+              </div>
+              {courses.length > 0 && (
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.courses')}</span></label>
+                  <div className="flex flex-col gap-1.5">
+                    {courses.map((c) => (
+                      <label key={c.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-sm checkbox-primary"
+                          checked={sform.cursos.includes(c.id)}
+                          onChange={() => toggleCurso(c.id)}
+                        />
+                        <span className="text-sm">{c.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{t('students.tariff')}</span></label>
+                  <select className="select select-bordered w-full" value={sform.tipo_tarifa} onChange={(e) => setSform((prev) => ({ ...prev, tipo_tarifa: e.target.value }))}>
+                    <option value="cantidad">{t('tariff_types.cantidad')}</option>
+                    <option value="mayor_9">{t('tariff_types.mayor_9')}</option>
+                    <option value="menor_9">{t('tariff_types.menor_9')}</option>
+                    <option value="diaria">{t('tariff_types.diaria')}</option>
+                  </select>
+                </div>
+                <div className="form-control">
+                  <label className="label"><span className="label-text">{sform.tipo_tarifa === 'diaria' ? t('students.daily_price') : t('students.receipt_amount')}</span></label>
+                  <div className="join w-full">
+                    <input type="number" step="0.01" className="input input-bordered join-item flex-1" value={sform.cuota_mensual} onChange={(e) => setSform((prev) => ({ ...prev, cuota_mensual: e.target.value }))} placeholder="0.00" />
+                    <span className="join-item bg-base-200 flex items-center px-3 text-sm opacity-60">€</span>
+                  </div>
+                </div>
+              </div>
+              <div className="form-control">
+                <label className="label"><span className="label-text">{t('students.billing_frequency')}</span></label>
+                <select className="select select-bordered w-full" value={sform.facturar_cada} onChange={(e) => setSform((prev) => ({ ...prev, facturar_cada: e.target.value }))}>
+                  <option value="1">{t('common.1_month')}</option>
+                  <option value="2">{t('common.2_months')}</option>
+                  <option value="3">{t('common.3_months')}</option>
+                  <option value="6">{t('common.6_months')}</option>
+                  <option value="12">{t('common.12_months')}</option>
+                  <option value="semanal">{t('billing.semanal')}</option>
+                  <option value="puntual">{t('billing.puntual')}</option>
+                </select>
+              </div>
+
+              <div className="modal-action">
+                <button type="button" className="btn btn-soft" onClick={() => setShowStudentModal(false)}>{t('common.cancel')}</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? t('common.loading') : t('students.register')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </dialog>
+      )}
     </div>
   )
 }

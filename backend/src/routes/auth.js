@@ -12,10 +12,20 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Demasiados intentos, inténtalo más tarde' },
+  skipSuccessfulRequests: true,
+  message: { error: 'Demasiados intentos fallidos, inténtalo más tarde' },
 });
 
-router.post('/auth/register', async (req, res) => {
+// Evita crear cuentas en masa desde la misma IP
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados registros, inténtalo más tarde' },
+});
+
+router.post('/auth/register', registerLimiter, async (req, res) => {
   try {
     const { email, password, nombre, apellidos } = req.body;
     if (!email || !password || !nombre) {
@@ -61,7 +71,7 @@ router.post('/auth/register', async (req, res) => {
   }
 });
 
-router.post('/auth/login', async (req, res) => {
+router.post('/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {

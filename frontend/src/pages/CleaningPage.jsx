@@ -4,7 +4,8 @@ import { fetchApi } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../components/Toast'
 import RoomMap from '../components/RoomMap'
-import ImageViewer, { imageUrl } from '../components/ImageViewer'
+import ImageViewer from '../components/ImageViewer'
+import SecureImage from '../components/SecureImage'
 
 const DIAS = ['Lunes', 'Martes', 'Mi\u00e9rcoles', 'Jueves', 'Viernes', 'S\u00e1bado', 'Domingo']
 
@@ -331,7 +332,7 @@ function ReadOnlyRoomCard({ room, t }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {room.completada_hoy && room.imagen && (
-            <img src={imageUrl(room.imagen)} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => setViewPhoto(room.imagen)} />
+            <SecureImage src={room.imagen} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => setViewPhoto(room.imagen)} />
           )}
           {room.completada_hoy ? (
             <span className="badge badge-success badge-sm">{t('cleaning.completed')}</span>
@@ -438,7 +439,7 @@ function RoomChecklistCard({ room, checklistStates, toggleChecklistItem, toggleC
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {room.completada_hoy && room.imagen && (
-            <img src={imageUrl(room.imagen)} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => setViewPhoto(room.imagen)} />
+            <SecureImage src={room.imagen} alt="foto" className="w-7 h-7 object-cover rounded cursor-pointer" onClick={() => setViewPhoto(room.imagen)} />
           )}
           {!room.completada_hoy && (
             <label className={`btn btn-ghost btn-xs btn-square ${uploadingImg ? 'pointer-events-none' : ''}`}>

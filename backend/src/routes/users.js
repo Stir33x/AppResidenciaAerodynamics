@@ -63,6 +63,15 @@ router.put('/:id', requireRole('direccion'), async (req, res) => {
       return res.status(400).json({ error: 'No puedes cambiar tu propio rol' });
     }
 
+    // Prevent role change for students (their role is managed through the students module)
+    if (rol) {
+      const [curr] = await pool.query('SELECT rol FROM profiles WHERE id = ?', [req.params.id]);
+      if (curr.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+      if (curr[0].rol === 'estudiante' && rol !== curr[0].rol) {
+        return res.status(400).json({ error: 'No se puede cambiar el rol de un alumno' });
+      }
+    }
+
     const fields = [];
     const params = [];
 

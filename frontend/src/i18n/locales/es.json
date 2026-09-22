@@ -197,7 +197,18 @@
     "pending_payments_title": "Pagos pendientes — el alumno debe regularizar antes de la baja:",
     "register": "Registrar",
     "registration_checklist": "Checklist de alta",
-    "inventory_assignment": "Asignar objetos del inventario (almacén)"
+    "inventory_assignment": "Asignar objetos del inventario (almacén)",
+    "flightlogger_link": "Vincular",
+    "flightlogger_unlink": "Desvincular",
+    "flightlogger_unlink_hint": "Quitar la vinculación con FlightLogger",
+    "flightlogger_linked": "Vinculado con FlightLogger",
+    "flightlogger_unlinked": "Vinculación con FlightLogger eliminada",
+    "flightlogger_filled": "Datos rellenados desde FlightLogger",
+    "flightlogger_link_desc": "Busca a {{name}} en FlightLogger. Escribe 3 letras del nombre o correo.",
+    "flightlogger_search_placeholder": "Escribe 3 letras...",
+    "flightlogger_no_results": "Sin resultados en FlightLogger",
+    "flightlogger_profile": "Perfil",
+    "flightlogger_no_url": "La URL del perfil de FlightLogger no está configurada"
   },
   "tariff_types": {
     "mayor_9": "Más de 9 meses",
@@ -485,7 +496,12 @@
     "occupied_until": "Ocupada hasta",
     "next_available": "Próxima libre",
     "show_soon": "Próximas libres",
-    "count": "{{n}} habitaciones"
+    "count": "{{n}} habitaciones",
+    "register_student": "Registrar alumno",
+    "register_student_in": "Registrar alumno · Hab. {{room}}",
+    "register_student_desc": "El alumno se dará de alta con esta habitación asignada automáticamente",
+    "register_next_student": "Reservar siguiente alumno",
+    "register_next_hint": "La habitación está ocupada por {{name}} hasta el {{until}}. El nuevo alumno entra el día siguiente; no se podrá solapar."
   },
   "documents": {
     "title": "Documentos",
@@ -540,7 +556,7 @@
     "edit_title": "Editar usuario",
     "create_title": "Nuevo usuario",
     "surname": "Apellidos",
-    "new_password": "Nueva contraseña (dejar vacío para mantener)",
+    "new_password": "Nueva contraseña",
     "password": "Contraseña",
     "confirm_delete": "¿Eliminar a {{nombre}} {{apellidos}}?",
     "create_desc": "Crea un nuevo usuario del sistema",
@@ -550,7 +566,13 @@
     "email_placeholder": "ej. usuario@aerodynamics.es",
     "phone_placeholder": "ej. +34 600 000 000",
     "password_placeholder": "Mínimo 8 caracteres",
-    "password_edit_placeholder": "Dejar vacío para mantener"
+    "password_edit_placeholder": "Dejar vacío para mantener",
+    "search_placeholder": "Buscar por nombre, email o teléfono",
+    "all_roles": "Todos los roles",
+    "role_locked": "No se puede cambiar el rol de un alumno",
+    "page_info": "Mostrando {{from}}–{{to}} de {{total}}",
+    "prev": "Anterior",
+    "next": "Siguiente"
   },
   "inventory": {
     "title": "Inventario",
@@ -650,6 +672,7 @@
     "section_name_placeholder": "ej. Primeros platos",
     "items_empty": "Sin platos",
     "item_add": "+ Añadir plato",
+    "edit_item": "Editar plato",
     "item_name": "Plato",
     "item_name_placeholder": "ej. Lentejas",
     "item_desc_placeholder": "Descripción del plato...",
@@ -725,6 +748,8 @@
     "you": "Tú",
     "empty": "Sin mensajes todavía, escribe el primero.",
     "no_conversations": "Aún no hay conversaciones",
+    "search_placeholder": "Buscar por nombre, apellidos o habitación...",
+    "search_empty": "Sin resultados para la búsqueda",
     "select_conversation": "Selecciona una conversación de la izquierda",
     "live_poll": "⏱ En tiempo real"
   }

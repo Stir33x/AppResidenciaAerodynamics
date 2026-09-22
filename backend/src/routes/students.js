@@ -4,6 +4,8 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { verifyDocument } = require('../middleware/verify-upload');
+const { contentTypeForName } = require('../lib/file-probe');
 const upload = require('../middleware/upload');
 const { dailyAmount, dailyPeriodo } = require('../lib/billing');
 
@@ -72,7 +74,7 @@ router.get('/:id', requireRole('direccion', 'administracion'), async (req, res) 
 // POST /api/students
 router.post('/', requireRole('direccion', 'administracion'), async (req, res) => {
   try {
-    const { email, password, nombre, apellidos, telefono, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, tipo_tarifa, cursos } = req.body;
+    const { email, password, nombre, apellidos, telefono, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, tipo_tarifa, cursos, flightlogger_id } = req.body;
     if (!email || !password || !nombre) {
       return res.status(400).json({ error: 'Email, password y nombre requeridos' });
     }
@@ -93,6 +95,19 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
         LIMIT 1
       `, [habitacion, newEnd, newStart]);
       if (overlap.length > 0) return res.status(400).json({ error: 'La habitación tiene alumno asignado en esas fechas' });
+
+      // Validar solapamiento con huéspedes activos en la misma habitación
+      const [guestOverlap] = await pool.query(`
+        SELECT g.id FROM guests g
+        WHERE g.habitacion = ?
+          AND g.estado IN ('activo','pendiente_salida')
+          AND g.fecha_entrada <= ?
+          AND ? <= COALESCE(g.fecha_salida_prevista, '9999-12-31')
+        LIMIT 1
+      `, [habitacion, newEnd, newStart]);
+      if (guestOverlap.length > 0) {
+        return res.status(400).json({ error: 'La habitación está ocupada por un huésped en esas fechas' });
+      }
     }
 
     const hash = await bcrypt.hash(password, 12);
@@ -102,8 +117,8 @@ router.post('/', requireRole('direccion', 'administracion'), async (req, res) =>
     );
 
     const [studentResult] = await pool.query(
-      'INSERT INTO students (profile_id, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, tipo_tarifa) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [profileResult.insertId, habitacion || '', fecha_entrada || null, fecha_salida_prevista || null, cuota_mensual || 0, facturar_cada || '1', tipo_tarifa || 'cantidad']
+      'INSERT INTO students (profile_id, habitacion, fecha_entrada, fecha_salida_prevista, cuota_mensual, facturar_cada, tipo_tarifa, flightlogger_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [profileResult.insertId, habitacion || '', fecha_entrada || null, fecha_salida_prevista || null, cuota_mensual || 0, facturar_cada || '1', tipo_tarifa || 'cantidad', flightlogger_id || null]
     );
 
     // Auto-generar recibos según el tipo de tarifa
@@ -213,6 +228,18 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
         LIMIT 1
       `, [habitacion, req.params.id, newEnd, newStart]);
       if (overlap.length > 0) return res.status(400).json({ error: 'La habitación tiene alumno asignado en esas fechas' });
+
+      const [guestOverlap] = await pool.query(`
+        SELECT g.id FROM guests g
+        WHERE g.habitacion = ?
+          AND g.estado IN ('activo','pendiente_salida')
+          AND g.fecha_entrada <= ?
+          AND ? <= COALESCE(g.fecha_salida_prevista, '9999-12-31')
+        LIMIT 1
+      `, [habitacion, newEnd, newStart]);
+      if (guestOverlap.length > 0) {
+        return res.status(400).json({ error: 'La habitación está ocupada por un huésped en esas fechas' });
+      }
     }
 
     const fields = ['habitacion = COALESCE(?, habitacion)', 'fecha_entrada = COALESCE(?, fecha_entrada)', 'fecha_salida_prevista = COALESCE(?, fecha_salida_prevista)', 'fecha_salida_real = COALESCE(?, fecha_salida_real)', 'acceso_habitacion = COALESCE(?, acceso_habitacion)', 'estado = COALESCE(?, estado)'];
@@ -269,8 +296,23 @@ router.put('/:id', requireRole('direccion', 'administracion'), async (req, res) 
   }
 });
 
+// PUT /api/students/:id/flightlogger — vincular/desvincular alumno con FlightLogger
+router.put('/:id/flightlogger', requireRole('direccion', 'administracion'), async (req, res) => {
+  try {
+    const { flightlogger_id } = req.body;
+    const [rows] = await pool.query('SELECT id FROM students WHERE id = ?', [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Alumno no encontrado' });
+
+    await pool.query('UPDATE students SET flightlogger_id = ? WHERE id = ?', [flightlogger_id || null, req.params.id]);
+    res.json({ ok: true, flightlogger_id: flightlogger_id || null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error del servidor' });
+  }
+});
+
 // POST /api/students/:id/contrato
-router.post('/:id/contrato', requireRole('direccion', 'administracion'), upload.single('file'), async (req, res) => {
+router.post('/:id/contrato', requireRole('direccion', 'administracion'), upload.single('file'), verifyDocument, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
 
@@ -307,8 +349,8 @@ router.get('/:id/contrato/download', requireRole('direccion', 'administracion', 
     const filePath = path.resolve(__dirname, '..', '..', students[0].contrato_url.replace(/^\//, ''));
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="contrato.pdf"');
+    res.setHeader('Content-Type', contentTypeForName(students[0].contrato_url));
+    res.setHeader('Content-Disposition', `inline; filename="contrato${path.extname(students[0].contrato_url) || '.pdf'}"`);
     res.sendFile(filePath);
   } catch (err) {
     console.error(err);
@@ -400,7 +442,7 @@ router.get('/:id/documentos', requireRole('direccion', 'administracion', 'estudi
 });
 
 // POST /api/students/:id/documentos (staff upload any document type)
-router.post('/:id/documentos', requireRole('direccion', 'administracion'), upload.single('file'), async (req, res) => {
+router.post('/:id/documentos', requireRole('direccion', 'administracion'), upload.single('file'), verifyDocument, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
     const { id } = req.params;
@@ -451,7 +493,7 @@ router.get('/:id/documentos/:docId/download', requireRole('direccion', 'administ
     const filePath = path.resolve(__dirname, '..', '..', doc.archivo_ruta.replace(/^\//, ''));
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
 
-    res.setHeader('Content-Type', doc.mime_type || 'application/octet-stream');
+    res.setHeader('Content-Type', contentTypeForName(doc.nombre_original));
     const safeName = (doc.nombre_original || 'documento').replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 100);
     res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
     res.sendFile(filePath);

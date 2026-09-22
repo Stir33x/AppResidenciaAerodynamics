@@ -9,8 +9,8 @@ router.use(authMiddleware);
 
 // Roles con acceso al chat
 const CHAT_ROLES = ['estudiante', 'invitado', 'staff', 'cocina', 'limpieza', 'direccion', 'administracion'];
-// Roles con la vista general (conversaciones + contactos): todos salvo estudiantes
-const GENERAL_ROLES = ['invitado', 'staff', 'cocina', 'limpieza', 'direccion', 'administracion'];
+// Roles con la vista general (conversaciones + contactos): todos los roles del chat
+const GENERAL_ROLES = ['estudiante', 'invitado', 'staff', 'cocina', 'limpieza', 'direccion', 'administracion'];
 // Únicamente dirección/administración pueden chatear directamente con un alumno
 // (a través de la conversación de equipo, que es la única vista por el estudiante).
 const TEAM_ROLES = ['direccion', 'administracion'];
@@ -177,8 +177,7 @@ router.get('/conversations', requireRole(...GENERAL_ROLES), longPollHandler({
                WHERE m.conversation_id = c.id AND m.leido = 0 AND m.sender_id <> ?) AS no_leidas
        FROM conversations c
        JOIN conversation_participants me ON me.conversation_id = c.id AND me.profile_id = ?
-       WHERE EXISTS (SELECT 1 FROM chat_messages m WHERE m.conversation_id = c.id)
-       ORDER BY ultimo_at DESC`,
+       ORDER BY ultimo_at DESC, c.id DESC`,
       [req.user.id, req.user.id]
     );
     const ids = convs.map((c) => c.id);
@@ -253,14 +252,17 @@ router.get('/messages', requireRole(...GENERAL_ROLES), async (req, res) => {
 });
 
 // GET /api/chat/people  (directorio de personas para iniciar un chat 1:1)
+// Los estudiantes solo ven dirección/administración (sus interlocutores permitidos).
 router.get('/people', requireRole(...GENERAL_ROLES), async (req, res) => {
   try {
+    const esEstudiante = req.user.rol === 'estudiante';
+    const filtroRol = esEstudiante ? "AND p.rol IN ('direccion','administracion')" : '';
     const [rows] = await pool.query(
       `SELECT p.id, p.nombre, p.apellidos, p.rol,
               COALESCE((SELECT s.habitacion FROM students s WHERE s.profile_id = p.id),
                        (SELECT g.habitacion FROM guests g WHERE g.profile_id = p.id)) AS habitacion
        FROM profiles p
-       WHERE p.id <> ?
+       WHERE p.id <> ? ${filtroRol}
        ORDER BY FIELD(p.rol, 'direccion','administracion','cocina','staff','limpieza','estudiante','invitado'),
                 p.apellidos, p.nombre`,
       [req.user.id]
@@ -311,7 +313,17 @@ router.post('/', async (req, res) => {
 
     let conversation_id;
     if (req.user.rol === 'estudiante') {
-      conversation_id = await getOrCreateTeamConversation(req.user.id);
+      if (req.body.conversation_id) {
+        conversation_id = parseInt(req.body.conversation_id, 10);
+        if (!Number.isInteger(conversation_id)) return res.status(400).json({ error: 'Conversación inválida' });
+        const [part] = await pool.query(
+          `SELECT 1 FROM conversation_participants WHERE conversation_id = ? AND profile_id = ?`,
+          [conversation_id, req.user.id]
+        );
+        if (!part.length) return res.status(403).json({ error: 'No participas en esta conversación' });
+      } else {
+        conversation_id = await getOrCreateTeamConversation(req.user.id);
+      }
     } else if (GENERAL_ROLES.includes(req.user.rol)) {
       if (req.body.conversation_id) {
         conversation_id = parseInt(req.body.conversation_id, 10);

@@ -4,6 +4,8 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { verifyDocument } = require('../middleware/verify-upload');
+const { contentTypeForName } = require('../lib/file-probe');
 const upload = require('../middleware/upload');
 const { dailyAmount, dailyPeriodo } = require('../lib/billing');
 
@@ -205,7 +207,7 @@ router.put('/:id/marcar-salida', requireRole('direccion', 'administracion'), asy
 });
 
 // POST /api/guests/:id/contrato
-router.post('/:id/contrato', requireRole('direccion', 'administracion'), upload.single('file'), async (req, res) => {
+router.post('/:id/contrato', requireRole('direccion', 'administracion'), upload.single('file'), verifyDocument, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Archivo requerido' });
 
@@ -258,8 +260,8 @@ router.get('/:id/contrato/download', requireRole('direccion', 'administracion', 
     const filePath = path.resolve(__dirname, '..', '..', guests[0].contrato_url.replace(/^\//, ''));
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
 
-    res.setHeader('Content-Type', guests[0].mime_type || 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'inline; filename="contrato.pdf"');
+    res.setHeader('Content-Type', contentTypeForName(guests[0].contrato_url));
+    res.setHeader('Content-Disposition', `inline; filename="contrato${path.extname(guests[0].contrato_url) || '.pdf'}"`);
     res.sendFile(filePath);
   } catch (err) {
     console.error(err);

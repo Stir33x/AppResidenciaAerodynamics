@@ -9,7 +9,7 @@ export default function OrdersPage() {
   const { user } = useAuth()
   const { addToast } = useToast()
   const puedeVerTodo = ['cocina', 'direccion'].includes(user?.rol)
-  const puedeReservar = user?.rol === 'estudiante'
+  const puedeReservar = ['estudiante', 'invitado'].includes(user?.rol)
   const puedeGestionar = user?.rol === 'cocina'
 
   const today = new Date().toISOString().split('T')[0]

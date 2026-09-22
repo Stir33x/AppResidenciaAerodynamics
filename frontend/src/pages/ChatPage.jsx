@@ -18,8 +18,7 @@ export default function ChatPage() {
   const { user } = useAuth()
   const { addToast } = useToast()
 
-  const esEstudiante = user?.rol === 'estudiante'
-  const esGeneral = !!user && ['invitado', 'staff', 'cocina', 'limpieza', 'direccion', 'administracion'].includes(user.rol)
+  const esGeneral = !!user && ['estudiante', 'invitado', 'staff', 'cocina', 'limpieza', 'direccion', 'administracion'].includes(user.rol)
 
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -30,46 +29,11 @@ export default function ChatPage() {
   const [selected, setSelected] = useState(null)
   const [personas, setPersonas] = useState([])
   const [mostrarContactos, setMostrarContactos] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
 
   const endRef = useRef(null)
 
-  // Hilo del ALUMNO: long-poll en /chat/mine?after=<cursor> (conversación con el equipo)
-  useEffect(() => {
-    if (!esEstudiante) return
-    let stopped = false
-    let ctrl = null
-    let cursor = 0
-    const fallback = setTimeout(() => { if (!stopped) setCargando(false) }, FIRST_FALLBACK)
-
-    const loop = async () => {
-      if (stopped) return
-      ctrl = new AbortController()
-      try {
-        const data = await fetchApi(`/chat/mine?after=${cursor}`, {
-          signal: timedSignal(ctrl.signal, POLL_TIMEOUT),
-        })
-        if (stopped) return
-        if (data && Array.isArray(data.messages)) {
-          setMensajes((prev) => {
-            const nuevos = data.messages.filter((m) => !prev.some((x) => x.id === m.id))
-            return [...prev, ...nuevos]
-          })
-          cursor = data.messages.reduce((mx, m) => Math.max(mx, m.id), 0)
-          setCargando(false)
-        }
-      } catch {}
-      if (!stopped) setTimeout(loop, 0)
-    }
-
-    loop()
-    return () => {
-      stopped = true
-      clearTimeout(fallback)
-      if (ctrl) ctrl.abort()
-    }
-  }, [esEstudiante])
-
-  // Lista de conversaciones (vista general): long-poll con token since
+  // Lista de conversaciones: long-poll con token since
   useEffect(() => {
     if (!esGeneral) return
     let stopped = false
@@ -87,10 +51,7 @@ export default function ChatPage() {
         if (data && Array.isArray(data.conversations)) {
           setConversaciones(data.conversations)
           since = data.max_id || since
-          setSelected((prev) => {
-            if (prev && data.conversations.some((c) => c.id === prev)) return prev
-            return data.conversations.length ? data.conversations[0].id : null
-          })
+          setSelected((prev) => prev || (data.conversations.length ? data.conversations[0].id : null))
           setCargando(false)
         }
       } catch {}
@@ -175,9 +136,8 @@ export default function ChatPage() {
     if (!msg) return
     setEnviando(true)
     try {
-      const body = esEstudiante
-        ? { mensaje: msg }
-        : { mensaje: msg, conversation_id: selected }
+      const body = { mensaje: msg }
+      if (selected) body.conversation_id = selected
       await fetchApi('/chat', { method: 'POST', body: JSON.stringify(body) })
       setTexto('')
     } catch (err) {
@@ -246,11 +206,33 @@ export default function ChatPage() {
                 </div>
               )}
 
+              <div className="px-3 pb-2 border-b border-base-300">
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder={t('chat.search_placeholder')}
+                  className="input input-bordered input-sm w-full"
+                />
+              </div>
+
               <div className="flex-1 overflow-y-auto">
-                {conversaciones.length === 0 ? (
-                  <div className="p-4 text-sm text-base-content/40 text-center">{t('chat.no_conversations')}</div>
-                ) : (
-                  conversaciones.map((c) => (
+                {(() => {
+                  const q = busqueda.trim().toLowerCase()
+                  const filtradas = q
+                    ? conversaciones.filter((c) =>
+                        [c.otro?.nombre, c.otro?.apellidos, c.otro?.habitacion, c.ultimo]
+                          .filter(Boolean).join(' ').toLowerCase().includes(q)
+                      )
+                    : conversaciones
+                  if (filtradas.length === 0) {
+                    return (
+                      <div className="p-4 text-sm text-base-content/40 text-center">
+                        {conversaciones.length === 0 ? t('chat.no_conversations') : t('chat.search_empty')}
+                      </div>
+                    )
+                  }
+                  return filtradas.map((c) => (
                     <button
                       key={c.id}
                       onClick={() => setSelected(c.id)}
@@ -264,22 +246,25 @@ export default function ChatPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-medium truncate">
-                            {c.tipo === 'equipo' ? t('chat.team_label') : `${c.otro?.nombre} ${c.otro?.apellidos}`}
+                            {`${c.otro?.nombre} ${c.otro?.apellidos}`}
                           </span>
+                          {c.tipo === 'equipo' && (
+                            <span className="badge badge-soft badge-info badge-xs shrink-0">{t('chat.team_label')}</span>
+                          )}
                           {c.no_leidas > 0 && (
                             <span className="badge badge-error badge-xs shrink-0">{c.no_leidas}</span>
                           )}
                         </div>
                         <div className="text-xs text-base-content/50 truncate">
                           {c.otro?.habitacion && <span className="font-mono">{c.otro.habitacion}</span>}
-                          {(c.otro?.habitacion && c.otro?.rol) && ' · '}
-                          {c.tipo === 'equipo' ? `${c.otro?.nombre} ${c.otro?.apellidos}` : c.otro?.rol ? t('roles.' + c.otro.rol) : ''}
+                          {(c.otro?.habitacion) && ' · '}
+                          {c.otro?.rol ? t('roles.' + c.otro.rol) : ''}
                           {c.ultimo ? ' · ' + c.ultimo : ''}
                         </div>
                       </div>
                     </button>
                   ))
-                )}
+                })()}
               </div>
             </div>
           )}
@@ -292,10 +277,13 @@ export default function ChatPage() {
             ) : (
               <>
                 <div className="px-4 py-3 border-b border-base-300 text-sm font-medium flex items-center justify-between gap-2">
-                  <span>
-                    {esGeneral
-                      ? (conversacionActual?.tipo === 'equipo' ? t('chat.team_label') : (tituloActual || t('chat.thread_title')))
-                      : t('chat.thread_title')}
+                  <span className="flex items-center gap-2 min-w-0">
+                    {conversacionActual?.tipo === 'equipo' && (
+                      <span className="badge badge-soft badge-info badge-xs shrink-0">{t('chat.team_label')}</span>
+                    )}
+                    <span className="truncate">
+                      {esGeneral ? (tituloActual || t('chat.thread_title')) : t('chat.thread_title')}
+                    </span>
                   </span>
                   <span className="badge badge-ghost badge-xs">{t('chat.live_poll')}</span>
                 </div>

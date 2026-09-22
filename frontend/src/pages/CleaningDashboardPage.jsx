@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fetchApi } from '../lib/api'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import ImageViewer, { imageUrl } from '../components/ImageViewer'
+import ImageViewer from '../components/ImageViewer'
+import SecureImage from '../components/SecureImage'
 
 const localISO = (d) => {
   const y = d.getFullYear()
@@ -75,7 +76,7 @@ export default function CleaningDashboardPage() {
 
   const image = (url) => (
     url ? (
-      <img src={imageUrl(url)} alt="" className="w-10 h-10 object-cover rounded cursor-pointer border border-base-300" onClick={() => setViewPhoto(url)} />
+      <SecureImage src={url} alt="" className="w-10 h-10 object-cover rounded cursor-pointer border border-base-300" onClick={() => setViewPhoto(url)} />
     ) : (
       <span className="opacity-40">-</span>
     )
